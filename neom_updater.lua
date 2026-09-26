@@ -1,9 +1,3 @@
---[[
-    NeoMLoader Auto-Update System
-    Безопасный автоматический апдейтер ядра libNeoMLoader.so и стандартных библиотек.
-    Стиль: Dark Liquid Obsidian Glass (Glassmorphism, 0% лагов на мобильных устройствах).
-]]
-
 local M = {}
 
 local has_json, json = pcall(require, "cjson.safe")
@@ -18,10 +12,35 @@ local has_ssl, https = pcall(require, "ssl.https")
 local has_http, http = pcall(require, "socket.http")
 local ltn12 = require("ltn12")
 
-local ok_enc, enc = pcall(require, "encoding")
-local u8 = (ok_enc and enc and enc.UTF8) or function(s) return s end
+local function u8(s)
+    if not s or type(s) ~= "string" then return s end
+    local is_utf8, has_high, len, i = true, false, #s, 1
+    while i <= len do
+        local b = string.byte(s, i)
+        if b >= 128 then
+            has_high = true
+            if b >= 192 and b <= 223 then
+                if i + 1 > len or string.byte(s, i + 1) < 128 or string.byte(s, i + 1) > 191 then is_utf8 = false; break end
+                i = i + 2
+            elseif b >= 224 and b <= 239 then
+                if i + 2 > len or string.byte(s, i + 1) < 128 or string.byte(s, i + 1) > 191 or string.byte(s, i + 2) < 128 or string.byte(s, i + 2) > 191 then is_utf8 = false; break end
+                i = i + 3
+            elseif b >= 240 and b <= 247 then
+                if i + 3 > len or string.byte(s, i + 1) < 128 or string.byte(s, i + 1) > 191 or string.byte(s, i + 2) < 128 or string.byte(s, i + 2) > 191 or string.byte(s, i + 3) < 128 or string.byte(s, i + 3) > 191 then is_utf8 = false; break end
+                i = i + 4
+            else
+                is_utf8 = false; break
+            end
+        else
+            i = i + 1
+        end
+    end
+    if is_utf8 and has_high then return s end
+    local ok, enc = pcall(require, "encoding")
+    if ok and enc and enc.UTF8 then return enc.UTF8(s) end
+    return s
+end
 
--- Информация о текущей версии
 M.CURRENT_VERSION = "1.0.3"
 M.CURRENT_BUILD = 103
 M.CURRENT_LIBSTD_VERSION = "1.0.2"
@@ -38,7 +57,6 @@ M.BACKUP_BINARY_PATH = M.DATA_DIR .. "libNeoMLoader.so.bak"
 M.CANARY_FLAG_PATH = M.DATA_DIR .. "update_booting.flag"
 M.LIBSTD_DIR = "/sdcard/Android/media/" .. M.PACKAGE_NAME .. "/neomloader/lib/"
 
--- Состояния апдейтера
 M.STATE_IDLE = 0
 M.STATE_CHECKING = 1
 M.STATE_AVAILABLE = 2
@@ -61,7 +79,6 @@ local function log_msg(msg)
     end
 end
 
--- Очистка canary-флага после успешного старта
 do
     local f = io.open(M.CANARY_FLAG_PATH, "r")
     if f then
@@ -71,7 +88,6 @@ do
     end
 end
 
--- HTTP GET запрос
 local function http_get(url)
     local response_body = {}
     local client = url:match("^https") and https or http
@@ -95,7 +111,6 @@ local function http_get(url)
     return nil, string.format("Ошибка HTTP запроса: код %s, статус %s", tostring(code), tostring(status))
 end
 
--- Загрузка файла на диск с отслеживанием прогресса
 local function download_file(url, target_path, on_progress)
     local client = url:match("^https") and https or http
     if not client then
@@ -140,7 +155,6 @@ local function download_file(url, target_path, on_progress)
     end
 end
 
--- Асинхронная проверка обновлений
 function M.check_update_coroutine(callback)
     M.state = M.STATE_CHECKING
     M.status_message = "Проверка наличия обновлений на сервере..."
@@ -188,7 +202,6 @@ function M.check_update_coroutine(callback)
     end
 end
 
--- Единое атомарное обновление всех компонентов (Ядро + Библиотеки)
 function M.apply_all_updates_coroutine(callback)
     if not M.remote_manifest then
         M.state = M.STATE_ERROR
@@ -197,7 +210,6 @@ function M.apply_all_updates_coroutine(callback)
         return
     end
 
-    -- 1. Обновление бинарного ядра libNeoMLoader.so
     if M.has_binary_update and M.remote_manifest.binary then
         local bin_info = M.remote_manifest.binary
         local bin_url = bin_info.url
@@ -242,7 +254,6 @@ function M.apply_all_updates_coroutine(callback)
             return
         end
 
-        -- Резервная копия текущего рабочего ядра
         local cur_in = io.open(target_path, "rb")
         if cur_in then
             local cur_data = cur_in:read("*a")
@@ -257,7 +268,6 @@ function M.apply_all_updates_coroutine(callback)
             end
         end
 
-        -- Установка canary-флага
         local flag_out = io.open(M.CANARY_FLAG_PATH, "w")
         if flag_out then
             flag_out:write(os.date("!%Y-%m-%dT%H:%M:%SZ\n"))
@@ -265,7 +275,6 @@ function M.apply_all_updates_coroutine(callback)
             log_msg("Установлен canary-флаг: " .. M.CANARY_FLAG_PATH)
         end
 
-        -- Атомарная замена файла
         M.status_message = "Установка обновлённого ядра..."
         local renamed, rename_err = os.rename(tmp_path, target_path)
         if not renamed then
@@ -282,7 +291,6 @@ function M.apply_all_updates_coroutine(callback)
         end
     end
 
-    -- 2. Обновление стандартных библиотек (libstd)
     if M.has_libstd_update and M.remote_manifest.libstd and M.remote_manifest.libstd.zip_url then
         local zip_url = M.remote_manifest.libstd.zip_url
         local tmp_zip = M.LIBSTD_DIR .. "libstd_update.zip.tmp"
@@ -302,7 +310,6 @@ function M.apply_all_updates_coroutine(callback)
             M.status_message = "Распаковка и установка библиотек..."
             M.progress = 0.85
 
-            -- Используем встроенную Android утилиту unzip
             os.execute(string.format("mkdir -p '%s'", unzip_dir))
             local code = os.execute(string.format("unzip -o -q '%s' -d '%s'", tmp_zip, unzip_dir))
             if code == 0 or code == true then
@@ -323,10 +330,8 @@ function M.apply_all_updates_coroutine(callback)
     if callback then callback(true, "Успешно") end
 end
 
--- Совместимый алиас
 M.apply_binary_update_coroutine = M.apply_all_updates_coroutine
 
--- Запуск проверки в отдельной корутине
 function M.start_auto_check()
     local co = coroutine.create(function()
         M.check_update_coroutine(function(has_update, data)
@@ -338,7 +343,6 @@ function M.start_auto_check()
     coroutine.resume(co)
 end
 
--- Отрисовка интерфейса: Dark Liquid Obsidian Glass
 function M.render_ui()
     if not M.show_ui then return end
 
@@ -357,7 +361,6 @@ function M.render_ui()
         mds = MONET_DPI_SCALE
     end
 
-    -- Настройка стиля Liquid Obsidian Glass
     imgui.PushStyleColor(imgui.Col.WindowBg,       imgui.ImVec4(0.040, 0.055, 0.090, 0.90))
     imgui.PushStyleColor(imgui.Col.Border,         imgui.ImVec4(0.200, 0.380, 0.650, 0.45))
     imgui.PushStyleColor(imgui.Col.FrameBg,        imgui.ImVec4(0.075, 0.110, 0.190, 0.65))
@@ -384,14 +387,12 @@ function M.render_ui()
     end
 
     if imgui.Begin(u8("NeoMLoader • Обновление системы##liquid_modal"), nil, flags) then
-        -- Отрисовка жидкого светового градиента и зеркального блика по верхнему краю
         local dl = imgui.GetWindowDrawList()
         local wp = imgui.GetWindowPos()
         local ws = imgui.GetWindowSize()
         local x1, y1 = wp.x, wp.y
         local x2, y2 = x1 + ws.x, y1 + ws.y
 
-        -- Анимированное пульсирующее свечение (0% нагрузки на GPU)
         local t = os.clock()
         local pulse = (math.sin(t * 2.2) + 1.0) * 0.5
         local a_top = math.floor(20 + pulse * 22)
@@ -401,18 +402,14 @@ function M.render_ui()
         if dl.AddRectFilledMultiColor then
             dl:AddRectFilledMultiColor(imgui.ImVec2(x1 + 1, y1 + 1), imgui.ImVec2(x2 - 1, y1 + 38 * mds), c_tl, c_tr, 0, 0)
         end
-        -- Зеркальная грань (specular reflection)
         dl:AddLine(imgui.ImVec2(x1 + 18 * mds, y1 + 1), imgui.ImVec2(x2 - 18 * mds, y1 + 1), 0x55FFFFFF, 1.5)
-        -- Внешний контур с мягким неоновым отблеском
         dl:AddRect(imgui.ImVec2(x1, y1), imgui.ImVec2(x2, y2), 0x354499FF, 16.0 * mds, 15, 1.5)
 
-        -- Шапка окна
         imgui.TextColored(imgui.ImVec4(0.20, 0.85, 1.00, 1.0), u8("✦ NEOMLOADER ОБНОВЛЕНИЕ СИСТЕМЫ ✦"))
         imgui.TextDisabled(u8("Автоматическая проверка и безопасная установка компонентов"))
         imgui.Separator()
         imgui.Spacing()
 
-        -- Информационная карточка версий
         imgui.PushStyleColor(imgui.Col.ChildBg, imgui.ImVec4(0.065, 0.095, 0.160, 0.65))
         imgui.PushStyleVarFloat(imgui.StyleVar.ChildRounding, 10.0 * mds)
         imgui.BeginChild("##ver_card", imgui.ImVec2(0, 72 * mds), true)
@@ -430,7 +427,6 @@ function M.render_ui()
 
         imgui.Spacing()
 
-        -- Список изменений (если имеется в манифесте)
         if M.remote_manifest and M.remote_manifest.changelog and #M.remote_manifest.changelog > 0 then
             imgui.TextColored(imgui.ImVec4(0.40, 0.80, 1.00, 1.0), u8("Список изменений:"))
             imgui.PushStyleColor(imgui.Col.ChildBg, imgui.ImVec4(0.055, 0.080, 0.135, 0.55))
@@ -446,7 +442,6 @@ function M.render_ui()
         imgui.Separator()
         imgui.Spacing()
 
-        -- Статусная строка
         if M.state == M.STATE_ERROR then
             imgui.TextColored(imgui.ImVec4(1.0, 0.35, 0.35, 1.0), u8(M.status_message))
         elseif M.state == M.STATE_COMPLETED then
@@ -455,14 +450,12 @@ function M.render_ui()
             imgui.Text(u8(M.status_message))
         end
 
-        -- Индикатор прогресса
         if M.state == M.STATE_DOWNLOADING or M.state == M.STATE_VERIFYING then
             imgui.ProgressBar(M.progress, imgui.ImVec2(-1, 18 * mds), string.format("%d%%", math.floor(M.progress * 100)))
         end
 
         imgui.Spacing()
 
-        -- Кнопки действий
         if M.state == M.STATE_AVAILABLE then
             if imgui.Button(u8("✦ ОБНОВИТЬ ВСЁ ✦"), imgui.ImVec2(240 * mds, 38 * mds)) then
                 local co = coroutine.create(function()
@@ -496,7 +489,6 @@ function M.render_ui()
     imgui.PopStyleColor(10)
 end
 
--- Автономная регистрация в mimgui, если запущен как скрипт
 local has_mimgui, mimgui = pcall(require, "mimgui")
 if has_mimgui and mimgui and mimgui.OnFrame then
     mimgui.OnFrame(
@@ -511,29 +503,23 @@ if has_mimgui and mimgui and mimgui.OnFrame then
     )
 end
 
--- Главная функция для выполнения при входе в игру
--- Ожидает загрузки игрока в игру (спавна) + 60 секунд задержки
 function main()
-    -- Ожидание доступности SAMP
     if isSampAvailable then
         while not isSampAvailable() do
             if wait then wait(250) else break end
         end
     end
 
-    -- Ожидание загрузки и спавна персонажа
     if sampIsLocalPlayerSpawned then
         while not sampIsLocalPlayerSpawned() do
             if wait then wait(500) else break end
         end
     end
 
-    -- Задержка 60 секунд после загрузки игрока
     if wait then
         wait(60000)
     end
 
-    -- Запуск проверки обновлений
     M.start_auto_check()
 
     if wait then
