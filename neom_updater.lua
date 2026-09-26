@@ -11,6 +11,7 @@ local has_lfs, lfs = pcall(require, "lfs")
 local has_ssl, https = pcall(require, "ssl.https")
 local has_http, http = pcall(require, "socket.http")
 local ltn12 = require("ltn12")
+local has_mimgui, mimgui = pcall(require, "mimgui")
 
 local function u8(s)
     if not s or type(s) ~= "string" then return s end
@@ -41,11 +42,14 @@ local function u8(s)
     return s
 end
 
-M.CURRENT_VERSION = "1.0.3"
-M.CURRENT_BUILD = 103
+M.CURRENT_VERSION = "1.0.10"
+M.CURRENT_BUILD = 110
 M.CURRENT_LIBSTD_VERSION = "1.0.2"
-if __version and type(__version) == "number" then
-    M.CURRENT_BUILD = __version
+if __neom_build and type(__neom_build) == "number" then
+    M.CURRENT_BUILD = __neom_build
+end
+if __neom_version and type(__neom_version) == "string" then
+    M.CURRENT_VERSION = __neom_version
 end
 
 M.MANIFEST_URL = "https://raw.githubusercontent.com/JustInPaper/neomloader-bin/main/manifest.json"
@@ -314,6 +318,8 @@ function M.apply_all_updates_coroutine(callback)
             local code = os.execute(string.format("unzip -o -q '%s' -d '%s'", tmp_zip, unzip_dir))
             if code == 0 or code == true then
                 os.execute(string.format("cp -rf '%s'/libstd-main/* '%s' 2>/dev/null || cp -rf '%s'/* '%s' 2>/dev/null", unzip_dir, M.LIBSTD_DIR, unzip_dir, M.LIBSTD_DIR))
+                os.execute(string.format("cp -f '%s/neom_updater.lua' '%s/../neom_updater.lua' 2>/dev/null", M.LIBSTD_DIR, M.LIBSTD_DIR))
+                os.execute(string.format("cp -f '%s/scriptmgr.lua' '%s/../scriptmgr.lua' 2>/dev/null", M.LIBSTD_DIR, M.LIBSTD_DIR))
                 log_msg("Библиотеки успешно распакованы в " .. M.LIBSTD_DIR)
             end
             os.execute(string.format("rm -rf '%s' '%s'", unzip_dir, tmp_zip))
@@ -347,7 +353,9 @@ function M.render_ui()
     if not M.show_ui then return end
 
     local imgui = nil
-    if type(_G.imgui) == "table" then
+    if has_mimgui and mimgui then
+        imgui = mimgui
+    elseif type(_G.imgui) == "table" then
         imgui = _G.imgui
     else
         local ok, lib = pcall(require, "imgui")
@@ -361,7 +369,13 @@ function M.render_ui()
         mds = MONET_DPI_SCALE
     end
 
-    imgui.SetNextWindowSize(imgui.ImVec2(480 * mds, 280 * mds), imgui.Cond.FirstUseEver)
+    local scrW, scrH = 1920, 1080
+    if getScreenResolution then
+        scrW, scrH = getScreenResolution()
+    end
+    local winW, winH = 480 * mds, 280 * mds
+    imgui.SetNextWindowPos(imgui.ImVec2((scrW - winW) / 2, (scrH - winH) / 2), imgui.Cond.FirstUseEver)
+    imgui.SetNextWindowSize(imgui.ImVec2(winW, winH), imgui.Cond.FirstUseEver)
 
     local flags = imgui.WindowFlags.NoCollapse
     if imgui.WindowFlags.AlwaysAutoResize then
@@ -434,7 +448,7 @@ if has_mimgui and mimgui and mimgui.OnFrame then
     mimgui.OnFrame(
         function() return M.show_ui end,
         function(player)
-            player.HideCursor = true
+            player.HideCursor = false
             player.LockPlayer = true
         end,
         function()
@@ -457,7 +471,7 @@ function main()
     end
 
     if wait then
-        wait(60000)
+        wait(3000)
     end
 
     M.start_auto_check()
