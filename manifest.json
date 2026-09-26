@@ -1,7 +1,7 @@
 {
   "version": "1.0.2",
-  "updated_at": "2026-09-26T10:28:46.798836+00:00",
-  "total_files": 112,
+  "updated_at": "2026-09-26T10:34:57.198664+00:00",
+  "total_files": 113,
   "files": {
     "RakLua.lua": {
       "sha256": "2c581e71fd5fda183572524f4c0ce2181975a2601c12f5111761e59979162216",
@@ -450,6 +450,10 @@
     "jit/zone.lua": {
       "sha256": "24b898d264259a0ce414b89015fee15ad272308e587e7820f8ca65c2e61f2f55",
       "size": 310
+    },
+    "scriptmgr.lua": {
+      "sha256": "f4db781bb943253ab55e98511b8d60c0ea23ef80bfc10844fa92ae9d5d62bf7f",
+      "size": 78098
     }
   }
 }
