@@ -35,7 +35,7 @@ ffi.cdef[[
 
     Colors moonmonet_build_colors(float chroma_multiplier, uint32_t color, bool accurate_shades);
 ]]
--- test
+
 local lib = ffi.load(getWorkingDirectory() .. "/lib/MoonMonet/libmoonmonet.so")
 
 function MoonMonet.buildColors(color, chroma_multiplier, accurate_shades)
