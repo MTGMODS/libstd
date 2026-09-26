@@ -1,7 +1,4 @@
--- This file is part of the SAMP.Lua project.
--- Licensed under the MIT License.
--- Copyright (c) 2016, FYP @ BlastHack Team <blast.hk>
--- https://github.com/THE-FYP/SAMP.Lua
+require 'RakLua'
 
 local MODULE = {
 	MODULEINFO = {
@@ -17,19 +14,13 @@ local MODULE = {
 	EXPORTS = {}
 }
 
--- check dependencies
---assert(isSampLoaded(), 'SA-MP is not loaded')
-assert(isSampfuncsLoaded(), 'samp.events requires SAMPFUNCS')
---assert(getMoonloaderVersion() >= 20, 'samp.events requires MoonLoader v.020 or greater')
-
 local BitStreamIO            = require 'samp.events.bitstream_io'
 MODULE.INTERFACE.BitStreamIO = BitStreamIO
-
 
 local function read_data(bs, dataType)
 	if type(dataType) ~= 'table' then
 		return BitStreamIO[dataType].read(bs)
-	else -- process nested structures
+	else
 		local values = {}
 		for _, it in ipairs(dataType) do
 			local name, t = next(it)
@@ -42,7 +33,7 @@ end
 local function write_data(bs, dataType, value)
 	if type(dataType) ~= 'table' then
 		BitStreamIO[dataType].write(bs, value)
-	else -- process nested structures
+	else
 		for _, it in ipairs(dataType) do
 			local name, t = next(it)
 			write_data(bs, t, value[name])
@@ -50,14 +41,25 @@ local function write_data(bs, dataType, value)
 	end
 end
 
+local _raw_unpack = (type(table.unpack) == 'function' and table.unpack) or (type(_G.unpack) == 'function' and _G.unpack) or unpack
+local function safe_unpack(t)
+	if type(t) ~= 'table' then return t end
+	local len = #t
+	if type(t.n) == 'number' then
+		len = t.n
+	end
+	return _raw_unpack(t, 1, len)
+end
+
 local function process_event(bs, callback, struct, ignorebits)
+	if type(struct) ~= 'table' then return end
 	local args = {}
-	if bs ~= 0 then
+	if bs and bs ~= 0 then
 		if ignorebits then
 			raknetBitStreamIgnoreBits(bs, ignorebits)
 		end
 		if type(struct[2]) == 'function' then
-			local r1, r2 = struct[2](bs) -- call custom reading function
+			local r1, r2 = struct[2](bs)
 			if type(callback) == 'table' and type(r1) == 'string' then
 				callback = callback[r1]
 				if callback then
@@ -69,25 +71,28 @@ local function process_event(bs, callback, struct, ignorebits)
 				args = r1
 			end
 		else
-			-- skip event name
+
 			for i = 2, #struct do
-				local _, t = next(struct[i]) -- type
+				local _, t = next(struct[i])
 				table.insert(args, read_data(bs, t))
 			end
 		end
 	end
-	local result = callback(unpack(args))
-	if result == false then
-		return false -- consume packet
+	if type(args) ~= 'table' then
+		args = {args}
 	end
-	if bs ~= 0 and type(result) == 'table' then
+	local result = callback(safe_unpack(args))
+	if result == false then
+		return false
+	end
+	if bs and bs ~= 0 and type(result) == 'table' then
 		raknetBitStreamSetWriteOffset(bs, ignorebits or 0)
 		if type(struct[3]) == 'function' then
-			struct[3](bs, result) -- call custom writing function
+			struct[3](bs, result)
 		else
 			assert(#struct - 1 == #result)
 			for i = 2, #struct do
-				local _, t = next(struct[i]) -- type
+				local _, t = next(struct[i])
 				write_data(bs, t, result[i - 1])
 			end
 		end
@@ -114,7 +119,6 @@ local function process_packet(id, bs, event_table, ignorebits)
 		end
 	end
 end
-
 
 local interface = MODULE.INTERFACE
 local function samp_on_send_rpc(id, bitStream, priority, reliability, orderingChannel, shiftTs)

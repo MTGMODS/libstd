@@ -1,17 +1,5 @@
 local json = require "cjson"
 
--- Various common routines used by the Lua CJSON package
---
--- Mark Pulford <mark@kyne.au>
-
--- Determine with a Lua table can be treated as an array.
--- Explicitly returns "not an array" for very sparse arrays.
--- Returns:
--- -1   Not an array
--- 0    Empty table
--- >0   Highest index in the array
-
--- Provide unpack for Lua 5.3+ built without LUA_COMPAT_UNPACK
 local unpack = unpack
 if table.unpack then unpack = table.unpack end
 
@@ -54,7 +42,7 @@ local function serialise_table(value, indent, depth)
     local comma = false
     local fragment = { "{" .. spacing2 }
     if max > 0 then
-        -- Serialise array
+
         for i = 1, max do
             if comma then
                 table.insert(fragment, "," .. spacing2)
@@ -63,7 +51,7 @@ local function serialise_table(value, indent, depth)
             comma = true
         end
     elseif max < 0 then
-        -- Serialise table
+
         for k, v in pairs(value) do
             if comma then
                 table.insert(fragment, "," .. spacing2)
@@ -145,7 +133,6 @@ local function compare_values(val1, val2)
         return false
     end
 
-    -- Check for NaN
     if type1 == "number" and val1 ~= val1 and val2 ~= val2 then
         return true
     end
@@ -154,7 +141,6 @@ local function compare_values(val1, val2)
         return val1 == val2
     end
 
-    -- check_keys stores all the keys that must be checked in val2
     local check_keys = {}
     for k, _ in pairs(val1) do
         check_keys[k] = true
@@ -172,7 +158,7 @@ local function compare_values(val1, val2)
         check_keys[k] = nil
     end
     for k, _ in pairs(check_keys) do
-        -- Not the same if any keys from val1 were not found in val2
+
         return false
     end
     return true
@@ -223,13 +209,13 @@ local function run_test_group(tests)
         if type(name) == "string" and #name > 0 then
             print("==> " .. name)
         end
-        -- Not a protected call, these functions should never generate errors.
+
         func(unpack(input or {}))
         print()
     end
 
     for _, v in ipairs(tests) do
-        -- Run the helper if "should_work" is missing
+
         if v[4] == nil then
             run_helper(unpack(v))
         else
@@ -238,12 +224,10 @@ local function run_test_group(tests)
     end
 end
 
--- Run a Lua script in a separate environment
 local function run_script(script, env)
     local env = env or {}
     local func
 
-    -- Use setfenv() if it exists, otherwise assume Lua 5.2 load() exists
     if _G.setfenv then
         func = loadstring(script)
         if func then
@@ -261,7 +245,6 @@ local function run_script(script, env)
     return env
 end
 
--- Export functions
 return {
     serialise_value = serialise_value,
     file_load = file_load,
@@ -272,5 +255,3 @@ return {
     run_test_group = run_test_group,
     run_script = run_script
 }
-
--- vi:ai et sw=4 ts=4:

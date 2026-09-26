@@ -1,12 +1,3 @@
------------------------------------------------------------------------------
--- Unified SMTP/FTP subsystem
--- LuaSocket toolkit.
--- Author: Diego Nehab
------------------------------------------------------------------------------
-
------------------------------------------------------------------------------
--- Declare module and import dependencies
------------------------------------------------------------------------------
 local base = _G
 local string = require("string")
 local socket = require("socket")
@@ -15,15 +6,8 @@ local ltn12 = require("ltn12")
 socket.tp = {}
 local _M = socket.tp
 
------------------------------------------------------------------------------
--- Program constants
------------------------------------------------------------------------------
 _M.TIMEOUT = 60
 
------------------------------------------------------------------------------
--- Implementation
------------------------------------------------------------------------------
--- gets server reply (works for SMTP and FTP)
 local function get_reply(c)
     local code, current, sep
     local line, err = c:receive()
@@ -31,19 +15,18 @@ local function get_reply(c)
     if err then return nil, err end
     code, sep = socket.skip(2, string.find(line, "^(%d%d%d)(.?)"))
     if not code then return nil, "invalid server reply" end
-    if sep == "-" then -- reply is multiline
+    if sep == "-" then
         repeat
             line, err = c:receive()
             if err then return nil, err end
             current, sep = socket.skip(2, string.find(line, "^(%d%d%d)(.?)"))
             reply = reply .. "\n" .. line
-        -- reply ends with same code
+
         until code == current and sep == " "
     end
     return code, reply
 end
 
--- metatable for sock object
 local metat = { __index = {} }
 
 function metat.__index:getpeername()
@@ -112,13 +95,11 @@ function metat.__index:source(source, step)
     return ret, err
 end
 
--- closes the underlying c
 function metat.__index:close()
     self.c:close()
     return 1
 end
 
--- connect with server and return c object
 function _M.connect(host, port, timeout, create)
     local c, e = (create or socket.tcp)()
     if not c then return nil, e end

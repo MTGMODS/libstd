@@ -1,8 +1,3 @@
--- This file is part of the SAMP.Lua project.
--- Licensed under the MIT License.
--- Copyright (c) 2016, FYP @ BlastHack Team <blast.hk>
--- https://github.com/THE-FYP/SAMP.Lua
-
 local ffi = require 'ffi'
 local utils = {}
 
@@ -25,21 +20,31 @@ end
 
 function utils.read_sync_data(bs, st)
 	local dataStruct = utils.create_sync_data(st)
-	local ptr = tonumber(ffi.cast('intptr_t', ffi.cast('void*', dataStruct)))
+	local ptr = tonumber(ffi.cast('uintptr_t', ffi.cast('void*', dataStruct)))
 	raknetBitStreamReadBuffer(bs, ptr, ffi.sizeof(dataStruct))
 	return dataStruct
 end
 
 function utils.write_sync_data(bs, st, ffiobj)
 	require 'samp.synchronization'
-	local ptr = tonumber(ffi.cast('intptr_t', ffi.cast('void*', ffiobj)))
+	local ptr = tonumber(ffi.cast('uintptr_t', ffi.cast('void*', ffiobj)))
 	raknetBitStreamWriteBuffer(bs, ptr, ffi.sizeof(st))
 end
 
 function utils.process_outcoming_sync_data(bs, st)
-	local data = raknetBitStreamGetDataPtr(bs) + 1
+	local raw_ptr = raknetBitStreamGetDataPtr(bs)
+	if not raw_ptr or raw_ptr <= 0 then
+		return {utils.create_sync_data(st)}
+	end
 	require 'samp.synchronization'
-	return {ffi.cast(st .. '*', data)}
+	local ok, ptr = pcall(function()
+		local base = ffi.cast('char*', ffi.cast('uintptr_t', raw_ptr))
+		return ffi.cast(st .. '*', base + 1)
+	end)
+	if ok and ptr then
+		return {ptr}
+	end
+	return {utils.create_sync_data(st)}
 end
 
 return utils

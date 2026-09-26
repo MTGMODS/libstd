@@ -1,35 +1,28 @@
--- This file is part of the SAMP.Lua project.
--- Licensed under the MIT License.
--- Copyright (c) 2016, FYP @ BlastHack Team <blast.hk>
--- https://github.com/THE-FYP/SAMP.Lua
-
 local bs_io = require 'samp.events.bitstream_io'
 local utils = require 'samp.events.utils'
 local bsread, bswrite = bs_io.bs_read, bs_io.bs_write
 local handler = {}
 
---- onSendGiveDamage, onSendTakeDamage
 function handler.rpc_send_give_take_damage_reader(bs)
-	local take = bsread.bool(bs) -- 'true' is take damage
+	local take = bsread.bool(bs)
 	local data = {
-		bsread.uint16(bs), -- playerId
-		bsread.float(bs), -- damage
-		bsread.int32(bs), -- weapon
-		bsread.int32(bs), -- bodypart
+		bsread.uint16(bs),
+		bsread.float(bs),
+		bsread.int32(bs),
+		bsread.int32(bs),
 		take,
 	}
 	return (take and 'onSendTakeDamage' or 'onSendGiveDamage'), data
 end
 
 function handler.rpc_send_give_take_damage_writer(bs, data)
-	bswrite.bool(bs, data[5]) -- give or take
-	bswrite.uint16(bs, data[1]) -- playerId
-	bswrite.float(bs, data[2]) -- damage
-	bswrite.int32(bs, data[3]) -- weapon
-	bswrite.int32(bs, data[4]) -- bodypart
+	bswrite.bool(bs, data[5])
+	bswrite.uint16(bs, data[1])
+	bswrite.float(bs, data[2])
+	bswrite.int32(bs, data[3])
+	bswrite.int32(bs, data[4])
 end
 
---- onInitGame
 function handler.rpc_init_game_reader(bs)
 	local settings                 = {}
 	settings.zoneNames             = bsread.bool(bs)
@@ -80,7 +73,7 @@ function handler.rpc_init_game_writer(bs, data)
 	bswrite.bool(bs, settings.nametagLOS)
 	bswrite.bool(bs, settings.tirePopping)
 	bswrite.int32(bs, settings.classesAvailable)
-	bswrite.uint16(bs, data[1]) -- playerId
+	bswrite.uint16(bs, data[1])
 	bswrite.bool(bs, settings.showPlayerTags)
 	bswrite.int32(bs, settings.playerMarkersMode)
 	bswrite.uint8(bs, settings.worldTime)
@@ -94,14 +87,13 @@ function handler.rpc_init_game_writer(bs, data)
 	bswrite.int32(bs, settings.normalFiringSendrate)
 	bswrite.int32(bs, settings.sendMultiplier)
 	bswrite.int32(bs, settings.lagCompMode)
-	bswrite.string8(bs, data[2]) -- hostName
+	bswrite.string8(bs, data[2])
 	for i = 1, 212 do
 		bswrite.uint8(bs, vehicleModels[i])
 	end
 	bswrite.bool32(bs, settings.vehicleFriendlyFire)
 end
 
---- onInitMenu
 function handler.rpc_init_menu_reader(bs)
 	local colWidth2
 	local rows = {}
@@ -137,22 +129,22 @@ end
 
 function handler.rpc_init_menu_writer(bs, data)
 	local columns = data[6]
-	bswrite.uint8(bs, data[1])      -- menuId
-	bswrite.bool32(bs, data[5])    -- twoColumns
-	bswrite.fixedString32(bs, data[2]) -- title
-	bswrite.float(bs, data[3])     -- x
-	bswrite.float(bs, data[4])     -- y
-	-- columns width
+	bswrite.uint8(bs, data[1])
+	bswrite.bool32(bs, data[5])
+	bswrite.fixedString32(bs, data[2])
+	bswrite.float(bs, data[3])
+	bswrite.float(bs, data[4])
+
 	bswrite.float(bs, columns[1].width)
 	if data[5] then
 		bswrite.float(bs, columns[2].width)
 	end
-	bswrite.bool32(bs, data[8]) -- menu
-	 -- rows
+	bswrite.bool32(bs, data[8])
+
 	for i = 1, 12 do
 		bswrite.int32(bs, data[7][i])
 	end
-	-- columns
+
 	for i = 1, (data[5] and 2 or 1) do
 		bswrite.fixedString32(bs, columns[i].title)
 		bswrite.uint8(bs, #columns[i].text)
@@ -162,7 +154,6 @@ function handler.rpc_init_menu_writer(bs, data)
 	end
 end
 
---- onMarkersSync
 function handler.packet_markers_sync_reader(bs)
 	local markers = {}
 	local players = bsread.int32(bs)
@@ -194,7 +185,6 @@ function handler.packet_markers_sync_writer(bs, data)
 	end
 end
 
---- onPlayerSync
 function handler.packet_player_sync_reader(bs)
 	local has_value = bsread.bool
 	local data = {}
@@ -246,7 +236,6 @@ function handler.packet_player_sync_writer(bs, data)
 	end
 end
 
---- onVehicleSync
 function handler.packet_vehicle_sync_reader(bs)
 	local data = {}
 	local playerId = bsread.uint16(bs)
@@ -298,7 +287,6 @@ function handler.packet_vehicle_sync_writer(bs, data)
 	end
 end
 
---- onVehicleStreamIn
 function handler.rpc_vehicle_stream_in_reader(bs)
 	local data = {modSlots = {}}
 	local vehicleId = bsread.uint16(bs)
@@ -401,7 +389,6 @@ local function write_object_material_text(bs, data)
 	bswrite.encodedString2048(bs, data.text)
 end
 
---- onSetObjectMaterial
 function handler.rpc_set_object_material_reader(bs)
 	local objectId = bsread.uint16(bs)
 	local materialType = bsread.uint8(bs)
@@ -426,7 +413,6 @@ function handler.rpc_set_object_material_writer(bs, data)
 	end
 end
 
---- onCreateObject
 function handler.rpc_create_object_reader(bs)
 	local data = {materials = {}, materialText = {}}
 	local objectId = bsread.uint16(bs)
@@ -451,7 +437,7 @@ function handler.rpc_create_object_reader(bs)
 			table.insert(data.materialText, read_object_material_text(bs))
 		end
 	end
-	data.materials_text = data.materialText -- obsolete
+	data.materials_text = data.materialText
 	return {objectId, data}
 end
 

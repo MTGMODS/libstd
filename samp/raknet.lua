@@ -1,8 +1,3 @@
--- This file is part of the SAMP.Lua project.
--- Licensed under the MIT License.
--- Copyright (c) 2016, FYP @ BlastHack Team <blast.hk>
--- https://github.com/THE-FYP/SAMP.Lua
-
 local mod =
 {
 	MODULEINFO = {
@@ -171,7 +166,6 @@ mod.RPC = {
 	SETACTORHEALTH = 178,
 	SETPLAYEROBJECTNOCAMCOL = 169,
 
-	-- Invalid. Retained only for backward compatibility.
 	ENTEREDITOBJECT = RPC_ENTEREDITOBJECT,
 	UPDATE3DTEXTLABEL = RPC_SCRUPDATE3DTEXTLABEL,
 }

@@ -1,8 +1,3 @@
--- This file is part of the SAMP.Lua project.
--- Licensed under the MIT License.
--- Copyright (c) 2016, FYP @ BlastHack Team <blast.hk>
--- https://github.com/THE-FYP/SAMP.Lua
-
 local mod = {}
 local vector3d = require 'vector3d'
 local ffi = require 'ffi'
@@ -11,7 +6,7 @@ local function bitstream_read_fixed_string(bs, size)
 	local buf = ffi.new('uint8_t[?]', size + 1)
 	raknetBitStreamReadBuffer(bs, tonumber(ffi.cast('intptr_t', buf)), size)
 	buf[size] = 0
-	-- Length is not specified to throw off trailing zeros.
+
 	return ffi.string(buf)
 end
 
@@ -222,7 +217,7 @@ mod.normQuat = {
 		raknetBitStreamWriteInt16(bs, math.abs(x) * 65535)
 		raknetBitStreamWriteInt16(bs, math.abs(y) * 65535)
 		raknetBitStreamWriteInt16(bs, math.abs(z) * 65535)
-		-- w is calculated on the target
+
 	end
 }
 
@@ -256,7 +251,11 @@ mod.vector2d = {
 local function bitstream_io_interface(field)
 	return setmetatable({}, {
 		__index = function(t, index)
-			return mod[index][field]
+			local entry = mod[index]
+			if not entry or not entry[field] then
+				return function() return nil end
+			end
+			return entry[field]
 		end
 	})
 end

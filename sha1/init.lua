@@ -1,7 +1,7 @@
 local common = require "sha1.common"
 
 local sha1 = {
-   -- Meta fields retained for compatibility.
+
    _VERSION     = "sha.lua 0.6.0",
    _URL         = "https://github.com/mpeterv/sha1",
    _DESCRIPTION = [[
@@ -72,25 +72,18 @@ local function hex_to_binary(hex)
    end))
 end
 
--- Calculates SHA1 for a string, returns it encoded as 40 hexadecimal digits.
 function sha1.sha1(str)
-   -- Input preprocessing.
-   -- First, append a `1` bit and seven `0` bits.
+
    local first_append = schar(0x80)
 
-   -- Next, append some zero bytes to make the length of the final message a multiple of 64.
-   -- Eight more bytes will be added next.
    local non_zero_message_bytes = #str + 1 + 8
    local second_append = srep(schar(0), -non_zero_message_bytes % 64)
 
-   -- Finally, append the length of the original message in bits as a 64-bit number.
-   -- Assume that it fits into the lower 32 bits.
    local third_append = schar(0, 0, 0, 0, uint32_to_bytes(#str * 8))
 
    str = str .. first_append .. second_append .. third_append
    assert(#str % 64 == 0)
 
-   -- Initialize hash value.
    local h0 = 0x67452301
    local h1 = 0xEFCDAB89
    local h2 = 0x98BADCFE
@@ -99,9 +92,8 @@ function sha1.sha1(str)
 
    local w = {}
 
-   -- Process the input in successive 64-byte chunks.
    for chunk_start = 1, #str, 64 do
-      -- Load the chunk into W[0..15] as uint32 numbers.
+
       local uint32_start = chunk_start
 
       for i = 0, 15 do
@@ -109,19 +101,16 @@ function sha1.sha1(str)
          uint32_start = uint32_start + 4
       end
 
-      -- Extend the input vector.
       for i = 16, 79 do
          w[i] = uint32_lrot(uint32_xor_4(w[i - 3], w[i - 8], w[i - 14], w[i - 16]), 1)
       end
 
-      -- Initialize hash value for this chunk.
       local a = h0
       local b = h1
       local c = h2
       local d = h3
       local e = h4
 
-      -- Main loop.
       for i = 0, 79 do
          local f
          local k
@@ -148,7 +137,6 @@ function sha1.sha1(str)
          a = temp
       end
 
-      -- Add this chunk's hash to result so far.
       h0 = (h0 + a) % 4294967296
       h1 = (h1 + b) % 4294967296
       h2 = (h2 + c) % 4294967296
@@ -163,7 +151,6 @@ function sha1.binary(str)
    return hex_to_binary(sha1.sha1(str))
 end
 
--- Precalculate replacement tables.
 local xor_with_0x5c = {}
 local xor_with_0x36 = {}
 
@@ -172,7 +159,6 @@ for i = 0, 0xff do
    xor_with_0x36[schar(i)] = schar(byte_xor(0x36, i))
 end
 
--- 512 bits.
 local BLOCK_SIZE = 64
 
 function sha1.hmac(key, text)

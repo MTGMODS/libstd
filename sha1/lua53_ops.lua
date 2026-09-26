@@ -17,12 +17,12 @@ function ops.uint32_xor_4(a, b, c, d)
 end
 
 function ops.uint32_ternary(a, b, c)
-   -- c ~ (a & (b ~ c)) has less bitwise operations than (a & b) | (~a & c).
+
    return c ~ (a & (b ~ c))
 end
 
 function ops.uint32_majority(a, b, c)
-   -- (a & (b | c)) | (b & c) has less bitwise operations than (a & b) | (a & c) | (b & c).
+
    return (a & (b | c)) | (b & c)
 end
 
