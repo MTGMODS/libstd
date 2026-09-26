@@ -361,140 +361,80 @@ function M.render_ui()
         mds = MONET_DPI_SCALE
     end
 
-    imgui.PushStyleColor(imgui.Col.WindowBg,       imgui.ImVec4(0.040, 0.055, 0.090, 0.90))
-    imgui.PushStyleColor(imgui.Col.Border,         imgui.ImVec4(0.200, 0.380, 0.650, 0.45))
-    imgui.PushStyleColor(imgui.Col.FrameBg,        imgui.ImVec4(0.075, 0.110, 0.190, 0.65))
-    imgui.PushStyleColor(imgui.Col.Button,         imgui.ImVec4(0.090, 0.420, 0.800, 0.78))
-    imgui.PushStyleColor(imgui.Col.ButtonHovered,  imgui.ImVec4(0.140, 0.540, 0.950, 0.90))
-    imgui.PushStyleColor(imgui.Col.ButtonActive,   imgui.ImVec4(0.070, 0.340, 0.680, 0.98))
-    imgui.PushStyleColor(imgui.Col.Text,           imgui.ImVec4(0.920, 0.960, 1.000, 1.00))
-    imgui.PushStyleColor(imgui.Col.TextDisabled,   imgui.ImVec4(0.520, 0.600, 0.720, 1.00))
-    imgui.PushStyleColor(imgui.Col.Separator,      imgui.ImVec4(0.180, 0.320, 0.520, 0.40))
-    imgui.PushStyleColor(imgui.Col.PlotHistogram,  imgui.ImVec4(0.100, 0.750, 0.850, 0.90))
-
-    imgui.PushStyleVarFloat(imgui.StyleVar.WindowRounding, 16.0 * mds)
-    imgui.PushStyleVarFloat(imgui.StyleVar.FrameRounding,  8.0 * mds)
-    imgui.PushStyleVarVec2(imgui.StyleVar.WindowPadding,   imgui.ImVec2(20 * mds, 20 * mds))
-    imgui.PushStyleVarVec2(imgui.StyleVar.ItemSpacing,     imgui.ImVec2(10 * mds, 10 * mds))
-
-    local winW = 520 * mds
-    local winH = 340 * mds
-    imgui.SetNextWindowSize(imgui.ImVec2(winW, winH), imgui.Cond.FirstUseEver)
+    imgui.SetNextWindowSize(imgui.ImVec2(480 * mds, 280 * mds), imgui.Cond.FirstUseEver)
 
     local flags = imgui.WindowFlags.NoCollapse
     if imgui.WindowFlags.AlwaysAutoResize then
         flags = flags + imgui.WindowFlags.AlwaysAutoResize
     end
 
-    if imgui.Begin(u8("NeoMLoader • Обновление системы##liquid_modal"), nil, flags) then
-        local dl = imgui.GetWindowDrawList()
-        local wp = imgui.GetWindowPos()
-        local ws = imgui.GetWindowSize()
-        local x1, y1 = wp.x, wp.y
-        local x2, y2 = x1 + ws.x, y1 + ws.y
-
-        local t = os.clock()
-        local pulse = (math.sin(t * 2.2) + 1.0) * 0.5
-        local a_top = math.floor(20 + pulse * 22)
-        local c_tl = bit.bor(bit.lshift(a_top, 24), 0x0088EE)
-        local c_tr = bit.bor(bit.lshift(math.floor(a_top * 0.75), 24), 0x9922EE)
-
-        if dl.AddRectFilledMultiColor then
-            dl:AddRectFilledMultiColor(imgui.ImVec2(x1 + 1, y1 + 1), imgui.ImVec2(x2 - 1, y1 + 38 * mds), c_tl, c_tr, 0, 0)
-        end
-        dl:AddLine(imgui.ImVec2(x1 + 18 * mds, y1 + 1), imgui.ImVec2(x2 - 18 * mds, y1 + 1), 0x55FFFFFF, 1.5)
-        dl:AddRect(imgui.ImVec2(x1, y1), imgui.ImVec2(x2, y2), 0x354499FF, 16.0 * mds, 15, 1.5)
-
-        imgui.TextColored(imgui.ImVec4(0.20, 0.85, 1.00, 1.0), u8("✦ NEOMLOADER ОБНОВЛЕНИЕ СИСТЕМЫ ✦"))
-        imgui.TextDisabled(u8("Автоматическая проверка и безопасная установка компонентов"))
+    if imgui.Begin(u8("NeoMLoader - Обновление##updater"), nil, flags) then
+        imgui.TextColored(imgui.ImVec4(0.2, 0.8, 1.0, 1.0), u8("Доступно обновление NeoMLoader"))
         imgui.Separator()
-        imgui.Spacing()
 
-        imgui.PushStyleColor(imgui.Col.ChildBg, imgui.ImVec4(0.065, 0.095, 0.160, 0.65))
-        imgui.PushStyleVarFloat(imgui.StyleVar.ChildRounding, 10.0 * mds)
-        imgui.BeginChild("##ver_card", imgui.ImVec2(0, 72 * mds), true)
-
-        imgui.Text(string.format(u8("Установлено:  v%s (сборка %d) | libstd v%s"), M.CURRENT_VERSION, M.CURRENT_BUILD, M.CURRENT_LIBSTD_VERSION))
+        imgui.Text(string.format(u8("Текущая версия: v%s (сборка %d) | libstd v%s"), M.CURRENT_VERSION, M.CURRENT_BUILD, M.CURRENT_LIBSTD_VERSION))
         if M.remote_manifest and M.remote_manifest.version then
-            imgui.TextColored(imgui.ImVec4(0.30, 1.00, 0.50, 1.0),
-                string.format(u8("Доступно:      v%s (сборка %s) [Новая версия!]"), M.remote_manifest.version, tostring(M.remote_manifest.build_number)))
+            imgui.TextColored(imgui.ImVec4(0.3, 1.0, 0.4, 1.0),
+                string.format(u8("Новая версия:   v%s (сборка %s)"), M.remote_manifest.version, tostring(M.remote_manifest.build_number)))
         end
-        imgui.TextDisabled(u8("Компоненты:  Ядро (libNeoMLoader.so) + Библиотеки (libstd)"))
-
-        imgui.EndChild()
-        imgui.PopStyleVar()
-        imgui.PopStyleColor()
-
-        imgui.Spacing()
 
         if M.remote_manifest and M.remote_manifest.changelog and #M.remote_manifest.changelog > 0 then
-            imgui.TextColored(imgui.ImVec4(0.40, 0.80, 1.00, 1.0), u8("Список изменений:"))
-            imgui.PushStyleColor(imgui.Col.ChildBg, imgui.ImVec4(0.055, 0.080, 0.135, 0.55))
-            imgui.PushStyleVarFloat(imgui.StyleVar.ChildRounding, 8.0 * mds)
-            imgui.BeginChild("##changelog_card", imgui.ImVec2(0, 56 * mds), true)
+            imgui.Separator()
+            imgui.TextDisabled(u8("Что нового:"))
             imgui.TextWrapped(u8(M.remote_manifest.changelog))
-            imgui.EndChild()
-            imgui.PopStyleVar()
-            imgui.PopStyleColor()
-            imgui.Spacing()
         end
 
         imgui.Separator()
-        imgui.Spacing()
 
         if M.state == M.STATE_ERROR then
-            imgui.TextColored(imgui.ImVec4(1.0, 0.35, 0.35, 1.0), u8(M.status_message))
+            imgui.TextColored(imgui.ImVec4(1.0, 0.3, 0.3, 1.0), u8(M.status_message))
         elseif M.state == M.STATE_COMPLETED then
-            imgui.TextColored(imgui.ImVec4(0.25, 1.0, 0.45, 1.0), u8(M.status_message))
+            imgui.TextColored(imgui.ImVec4(0.3, 1.0, 0.4, 1.0), u8(M.status_message))
         else
             imgui.Text(u8(M.status_message))
         end
 
         if M.state == M.STATE_DOWNLOADING or M.state == M.STATE_VERIFYING then
-            imgui.ProgressBar(M.progress, imgui.ImVec2(-1, 18 * mds), string.format("%d%%", math.floor(M.progress * 100)))
+            imgui.ProgressBar(M.progress, imgui.ImVec2(-1, 20 * mds), string.format("%d%%", math.floor(M.progress * 100)))
         end
 
         imgui.Spacing()
 
         if M.state == M.STATE_AVAILABLE then
-            if imgui.Button(u8("✦ ОБНОВИТЬ ВСЁ ✦"), imgui.ImVec2(240 * mds, 38 * mds)) then
+            if imgui.Button(u8("Обновить сейчас"), imgui.ImVec2(160 * mds, 34 * mds)) then
                 local co = coroutine.create(function()
                     M.apply_all_updates_coroutine()
                 end)
                 coroutine.resume(co)
             end
             imgui.SameLine()
-            if imgui.Button(u8("Позже"), imgui.ImVec2(120 * mds, 38 * mds)) then
+            if imgui.Button(u8("Позже"), imgui.ImVec2(100 * mds, 34 * mds)) then
                 M.show_ui = false
             end
         elseif M.state == M.STATE_COMPLETED then
-            imgui.TextColored(imgui.ImVec4(0.3, 1.0, 0.4, 1.0), u8("Перезапустите игру для завершения применения обновлений."))
-            if imgui.Button(u8("Закрыть"), imgui.ImVec2(140 * mds, 36 * mds)) then
+            imgui.TextColored(imgui.ImVec4(0.3, 1.0, 0.4, 1.0), u8("Перезапустите игру для применения."))
+            if imgui.Button(u8("Закрыть"), imgui.ImVec2(120 * mds, 34 * mds)) then
                 M.show_ui = false
             end
         elseif M.state == M.STATE_ERROR then
-            if imgui.Button(u8("Повторить"), imgui.ImVec2(130 * mds, 36 * mds)) then
+            if imgui.Button(u8("Повторить"), imgui.ImVec2(120 * mds, 34 * mds)) then
                 M.start_auto_check()
             end
             imgui.SameLine()
-            if imgui.Button(u8("Закрыть"), imgui.ImVec2(110 * mds, 36 * mds)) then
+            if imgui.Button(u8("Закрыть"), imgui.ImVec2(100 * mds, 34 * mds)) then
                 M.show_ui = false
             end
         end
 
         imgui.End()
     end
-
-    imgui.PopStyleVar(4)
-    imgui.PopStyleColor(10)
 end
 
-local has_mimgui, mimgui = pcall(require, "mimgui")
 if has_mimgui and mimgui and mimgui.OnFrame then
     mimgui.OnFrame(
         function() return M.show_ui end,
         function(player)
-            player.HideCursor = false
+            player.HideCursor = true
             player.LockPlayer = true
         end,
         function()
