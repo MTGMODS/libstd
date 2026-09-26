@@ -1,9 +1,9 @@
 local RakLuaSO = require "RakLuaSO"
 
-addEventHandler("onScriptTerminate", function(scr) 
-    if scr == script.this then 
-        RakLuaSO.destroyHandlers() 
-    end 
+addEventHandler("onScriptTerminate", function(scr)
+    if scr == script.this then
+        RakLuaSO.destroyHandlers()
+    end
 end)
 
 local events = {
@@ -18,7 +18,6 @@ local addEventHandler_orig = addEventHandler
 local function hookAddEventHandler(event, func)
     if events[event] then
         assert(type(func) == "function", "Expected function, got " .. type(func))
-        print(type(func))
         RakLuaSO.registerHandler(events[event], func)
     else
         addEventHandler_orig(event, func)

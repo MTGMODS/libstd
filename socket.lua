@@ -1,11 +1,3 @@
------------------------------------------------------------------------------
--- LuaSocket helper module
--- Author: Diego Nehab
------------------------------------------------------------------------------
-
------------------------------------------------------------------------------
--- Declare module and import dependencies
------------------------------------------------------------------------------
 local base = _G
 local string = require("string")
 local math = require("math")
@@ -13,9 +5,6 @@ local socket = require("socket.core")
 
 local _M = socket
 
------------------------------------------------------------------------------
--- Exported auxiliar functions
------------------------------------------------------------------------------
 function _M.connect4(address, port, laddress, lport)
     return socket.connect(address, port, laddress, lport, "inet")
 end
@@ -66,10 +55,6 @@ function _M.choose(table)
     end
 end
 
------------------------------------------------------------------------------
--- Socket sources and sinks, conforming to LTN12
------------------------------------------------------------------------------
--- create namespaces inside LuaSocket namespace
 local sourcet, sinkt = {}, {}
 _M.sourcet = sourcet
 _M.sinkt = sinkt
@@ -140,7 +125,6 @@ sourcet["until-closed"] = function(sock)
         end
     })
 end
-
 
 sourcet["default"] = sourcet["until-closed"]
 

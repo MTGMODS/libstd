@@ -1,10 +1,3 @@
-------------------------------------------------------------------------------
--- LuaSec 1.3.2
---
--- Copyright (C) 2006-2023 Bruno Silvestre
---
-------------------------------------------------------------------------------
-
 local core    = require("ssl.core")
 local context = require("ssl.context")
 local x509    = require("ssl.x509")
@@ -12,13 +5,8 @@ local config  = require("ssl.config")
 
 local unpack  = table.unpack or unpack
 
--- We must prevent the contexts to be collected before the connections,
--- otherwise the C registry will be cleared.
 local registry = setmetatable({}, {__mode="k"})
 
---
---
---
 local function optexec(func, param, ctx)
   if param then
     if type(param) == "table" then
@@ -30,9 +18,6 @@ local function optexec(func, param, ctx)
   return true
 end
 
---
--- Convert an array of strings to wire-format
---
 local function array2wireformat(array)
    local str = ""
    for k, v in ipairs(array) do
@@ -49,9 +34,6 @@ local function array2wireformat(array)
    return str
 end
 
---
--- Convert wire-string format to array
---
 local function wireformat2array(str)
    local i = 1
    local array = {}
@@ -63,15 +45,12 @@ local function wireformat2array(str)
    return array
 end
 
---
---
---
 local function newcontext(cfg)
    local succ, msg, ctx
-   -- Create the context
+
    ctx, msg = context.create(cfg.protocol)
    if not ctx then return nil, msg end
-   -- Mode
+
    succ, msg = context.setmode(ctx, cfg.mode)
    if not succ then return nil, msg end
    local certificates = cfg.certificates
@@ -81,7 +60,7 @@ local function newcontext(cfg)
       }
    end
    for _, certificate in ipairs(certificates) do
-      -- Load the key
+
       if certificate.key then
          if certificate.password and
             type(certificate.password) ~= "function" and
@@ -92,7 +71,7 @@ local function newcontext(cfg)
          succ, msg = context.loadkey(ctx, certificate.key, certificate.password)
          if not succ then return nil, msg end
       end
-      -- Load the certificate(s)
+
       if certificate.certificate then
         succ, msg = context.loadcert(ctx, certificate.certificate)
         if not succ then return nil, msg end
@@ -102,46 +81,40 @@ local function newcontext(cfg)
         end
       end
    end
-   -- Load the CA certificates
+
    if cfg.cafile or cfg.capath then
       succ, msg = context.locations(ctx, cfg.cafile, cfg.capath)
       if not succ then return nil, msg end
    end
-   -- Set SSL ciphers
+
    if cfg.ciphers then
       succ, msg = context.setcipher(ctx, cfg.ciphers)
       if not succ then return nil, msg end
    end
-   -- Set SSL cipher suites
+
    if cfg.ciphersuites then
       succ, msg = context.setciphersuites(ctx, cfg.ciphersuites)
       if not succ then return nil, msg end
    end
-    -- Set the verification options
+
    succ, msg = optexec(context.setverify, cfg.verify, ctx)
    if not succ then return nil, msg end
-   -- Set SSL options
+
    succ, msg = optexec(context.setoptions, cfg.options, ctx)
    if not succ then return nil, msg end
-   -- Set the depth for certificate verification
+
    if cfg.depth then
       succ, msg = context.setdepth(ctx, cfg.depth)
       if not succ then return nil, msg end
    end
 
-   -- NOTE: Setting DH parameters and elliptic curves needs to come after
-   -- setoptions(), in case the user has specified the single_{dh,ecdh}_use
-   -- options.
-
-   -- Set DH parameters
    if cfg.dhparam then
       if type(cfg.dhparam) ~= "function" then
          return nil, "invalid DH parameter type"
       end
       context.setdhparam(ctx, cfg.dhparam)
    end
-   
-   -- Set elliptic curves
+
    if (not config.algorithms.ec) and (cfg.curve or cfg.curveslist) then
      return false, "elliptic curves not supported"
    end
@@ -153,17 +126,15 @@ local function newcontext(cfg)
      if not succ then return nil, msg end
    end
 
-   -- Set extra verification options
    if cfg.verifyext and ctx.setverifyext then
       succ, msg = optexec(ctx.setverifyext, cfg.verifyext, ctx)
       if not succ then return nil, msg end
    end
 
-   -- ALPN
    if cfg.mode == "server" and cfg.alpn then
       if type(cfg.alpn) == "function" then
          local alpncb = cfg.alpn
-         -- This callback function has to return one value only
+
          succ, msg = context.setalpncb(ctx, function(str)
             local protocols = alpncb(wireformat2array(str))
             if type(protocols) == "string" then
@@ -171,17 +142,17 @@ local function newcontext(cfg)
             elseif type(protocols) ~= "table" then
                return nil
             end
-            return (array2wireformat(protocols))    -- use "()" to drop error message
+            return (array2wireformat(protocols))
          end)
          if not succ then return nil, msg end
       elseif type(cfg.alpn) == "table" then
          local protocols = cfg.alpn
-         -- check if array is valid before use it
+
          succ, msg = array2wireformat(protocols)
          if not succ then return nil, msg end
-         -- This callback function has to return one value only
+
          succ, msg = context.setalpncb(ctx, function()
-            return (array2wireformat(protocols))    -- use "()" to drop error message
+            return (array2wireformat(protocols))
          end)
          if not succ then return nil, msg end
       else
@@ -201,7 +172,6 @@ local function newcontext(cfg)
       if not succ then return nil, msg end
    end
 
-   -- PSK
    if config.capabilities.psk and cfg.psk then
       if cfg.mode == "client" then
          if type(cfg.psk) ~= "function" then
@@ -239,9 +209,6 @@ local function newcontext(cfg)
    return ctx
 end
 
---
---
---
 local function wrap(sock, cfg)
    local ctx, msg
    if type(cfg) == "table" then
@@ -257,19 +224,16 @@ local function wrap(sock, cfg)
       registry[s] = ctx
       return s
    end
-   return nil, msg 
+   return nil, msg
 end
 
---
--- Extract connection information.
---
 local function info(ssl, field)
   local str, comp, err, protocol
   comp, err = core.compression(ssl)
   if err then
     return comp, err
   end
-  -- Avoid parser
+
   if field == "compression" then
     return comp
   end
@@ -278,7 +242,7 @@ local function info(ssl, field)
   if str then
     info.cipher, info.protocol, info.key,
     info.authentication, info.encryption, info.mac =
-        string.match(str, 
+        string.match(str,
           "^(%S+)%s+(%S+)%s+Kx=(%S+)%s+Au=(%S+)%s+Enc=(%S+)%s+Mac=(%S+)")
     info.export = (string.match(str, "%sexport%s*$") ~= nil)
   end
@@ -288,18 +252,11 @@ local function info(ssl, field)
   if field then
     return info[field]
   end
-  -- Empty?
+
   return ( (next(info)) and info )
 end
 
---
--- Set method for SSL connections.
---
 core.setmethod("info", info)
-
---------------------------------------------------------------------------------
--- Export module
---
 
 local _M = {
   _VERSION        = "1.3.2",

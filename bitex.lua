@@ -1,8 +1,3 @@
--- This file is part of SA MoonLoader package.
--- Licensed under the MIT License.
--- Copyright (c) 2016, BlastHack Team <blast.hk>
-
-
 local bit = require "bit"
 local int32max = 0xFFFFFFFF
 local bitex = {}

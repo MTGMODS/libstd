@@ -1,21 +1,13 @@
--- Virtual memory I/O module for internal process.
---
--- This file is part of SA MoonLoader package.
--- Licensed under the MIT License.
--- Copyright (c) 2019, BlastHack Team <blast.hk>
---
--- Modified by MonetLoader for (partial) Linux support
-
 local ffi = require 'ffi'
-local memory = {} -- all function must accept number-type address
+local memory = {}
 
 local page_access = {
-    NOACCESS          = 0x00, -- ---
-    READONLY          = 0x01, -- r-- Default for rodata.
-    READWRITE         = 0x03, -- rw- Default for bss, got, data and friends.
-    EXECUTE           = 0x04, -- --x
-    EXECUTE_READ      = 0x05, -- r-x Default for code.
-    EXECUTE_READWRITE = 0x07  -- rwx
+    NOACCESS          = 0x00,
+    READONLY          = 0x01,
+    READWRITE         = 0x03,
+    EXECUTE           = 0x04,
+    EXECUTE_READ      = 0x05,
+    EXECUTE_READWRITE = 0x07
 }
 local pvoid_t = ffi.typeof('void*')
 
@@ -40,7 +32,7 @@ end
 
 local function unprotect(address, size)
     local r = set_protection(address, size, page_access.EXECUTE_READWRITE, false)
-    if r == nil then -- Execmod not allowed.
+    if r == nil then
         return set_protection(address, size, page_access.READWRITE, true)
     end
     return r

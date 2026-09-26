@@ -1,10 +1,5 @@
--- This file is part of SA MoonLoader package.
--- Licensed under the MIT License.
--- Copyright (c) 2016, BlastHack Team <blast.hk>
-
 local sampfuncs = {
 
--- RPCs
 RPC_CLICKPLAYER                                = 23,
 RPC_CLIENTJOIN                                 = 25,
 RPC_ENTERVEHICLE                               = 26,
@@ -145,7 +140,6 @@ RPC_SCRWORLDVEHICLEADD                         = 164,
 RPC_SCRWORLDVEHICLEREMOVE                      = 165,
 RPC_SCRWORLDPLAYERDEATH                        = 166,
 
--- Packets
 PACKET_INTERNAL_PING                           = 6,
 PACKET_PING                                    = 7,
 PACKET_PING_OPEN_CONNECTIONS                   = 8,
@@ -199,7 +193,6 @@ PACKET_TRAILER_SYNC                            = 210,
 PACKET_PASSENGER_SYNC                          = 211,
 PACKET_SPECTATOR_SYNC                          = 212,
 
--- Gamestates
 GAMESTATE_NONE                                 = 0,
 GAMESTATE_WAIT_CONNECT                         = 1,
 GAMESTATE_AWAIT_JOIN                           = 2,
@@ -207,7 +200,6 @@ GAMESTATE_CONNECTED                            = 3,
 GAMESTATE_RESTARTING                           = 4,
 GAMESTATE_DISCONNECTED                         = 5,
 
--- BitStream
 BS_TYPE_BYTE                                   = 0,
 BS_TYPE_BOOL                                   = 1,
 BS_TYPE_SHORT                                  = 2,
@@ -216,25 +208,21 @@ BS_TYPE_FLOAT                                  = 4,
 BS_TYPE_ARRAY                                  = 5,
 BS_TYPE_BITSTREAM                              = 6,
 
--- Priorities
 SYSTEM_PRIORITY                                = 0,
 HIGH_PRIORITY                                  = 1,
 MEDIUM_PRIORITY                                = 2,
 LOW_PRIORITY                                   = 3,
 
--- Reliability
 UNRELIABLE                                     = 6,
 UNRELIABLE_SEQUENCED                           = 7,
 RELIABLE                                       = 8,
 RELIABLE_ORDERED                               = 9,
 RELIABLE_SEQUENCED                             = 10,
 
--- Sendrates
 ONFOOTSENDRATE                                 = 1,
 INCARSENDRATE                                  = 2,
 AIMSENDRATE                                    = 3,
 
--- SAMP Limits
 MAX_PLAYERS                                    = 1004,
 MAX_VEHICLES                                   = 2000,
 MAX_PICKUPS                                    = 4096,
@@ -245,7 +233,6 @@ MAX_TEXTDRAWS                                  = 2048,
 MAX_CLIENTCMDS                                 = 144,
 MAX_MENUS                                      = 128,
 
--- Text Styles
 FCR_NONE                                       = 0x0,
 FCR_BOLD                                       = 0x1,
 FCR_ITALICS                                    = 0x2,
@@ -254,13 +241,11 @@ FCR_SHADOW                                     = 0x8,
 FCR_UNDERLINE                                  = 0x10,
 FCR_STRIKEOUT                                  = 0x20,
 
--- SAMP SCM Events
 SCMEVENT_PAINTJOB                              = 1,
 SCMEVENT_UPGRADE                               = 2,
 SCMEVENT_COLOR                                 = 3,
 SCMEVENT_MODSHOPENTEREXIT                      = 4,
 
--- Special Actions
 SPECIAL_ACTION_NONE                            = 0,
 SPECIAL_ACTION_DUCK                            = 1,
 SPECIAL_ACTION_USEJETPACK                      = 2,
@@ -282,7 +267,6 @@ SPECIAL_ACTION_CUFFED                          = 24,
 SPECIAL_ACTION_CARRY                           = 25,
 SPECIAL_ACTION_URINATE                         = 68,
 
--- SAMP Dialog Styles
 DIALOG_STYLE_MSGBOX                            = 0,
 DIALOG_STYLE_INPUT                             = 1,
 DIALOG_STYLE_LIST                              = 2,
@@ -290,14 +274,12 @@ DIALOG_STYLE_PASSWORD                          = 3,
 DIALOG_STYLE_TABLIST                           = 4,
 DIALOG_STYLE_TABLIST_HEADERS                   = 5,
 
--- SAMP Cursor Modes
 CMODE_DISABLED                                 = 0,
 CMODE_LOCKKEYS_NOCURSOR                        = 1,
 CMODE_LOCKCAMANDCONTROL                        = 2,
 CMODE_LOCKCAM                                  = 3,
 CMODE_LOCKCAM_NOCURSOR                         = 4,
 
--- Primitive Types
 D3DPT_POINTLIST                                = 1,
 D3DPT_LINELIST                                 = 2,
 D3DPT_LINESTRIP                                = 3,
@@ -306,7 +288,6 @@ D3DPT_TRIANGLESTRIP                            = 5,
 D3DPT_TRIANGLEFAN                              = 6
 }
 
--- Copy table 'sampfuncs' to a global scope
 for k, v in pairs(sampfuncs) do
 	_G[k] = v
 end

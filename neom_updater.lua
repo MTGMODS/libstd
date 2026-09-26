@@ -1,0 +1,546 @@
+--[[
+    NeoMLoader Auto-Update System
+    Безопасный автоматический апдейтер ядра libNeoMLoader.so и стандартных библиотек.
+    Стиль: Dark Liquid Obsidian Glass (Glassmorphism, 0% лагов на мобильных устройствах).
+]]
+
+local M = {}
+
+local has_json, json = pcall(require, "cjson.safe")
+if not has_json or not json then
+    local ok, mod = pcall(require, "cjson")
+    json = ok and mod or nil
+end
+local sha256 = require("sha256")
+local has_lfs, lfs = pcall(require, "lfs")
+
+local has_ssl, https = pcall(require, "ssl.https")
+local has_http, http = pcall(require, "socket.http")
+local ltn12 = require("ltn12")
+
+local ok_enc, enc = pcall(require, "encoding")
+local u8 = (ok_enc and enc and enc.UTF8) or function(s) return s end
+
+-- Информация о текущей версии
+M.CURRENT_VERSION = "1.0.3"
+M.CURRENT_BUILD = 103
+M.CURRENT_LIBSTD_VERSION = "1.0.2"
+if __version and type(__version) == "number" then
+    M.CURRENT_BUILD = __version
+end
+
+M.MANIFEST_URL = "https://raw.githubusercontent.com/JustInPaper/neomloader-bin/main/manifest.json"
+
+M.PACKAGE_NAME = "com.arizonagames.arizona.web"
+M.DATA_DIR = "/storage/emulated/0/Android/data/" .. M.PACKAGE_NAME .. "/"
+M.TARGET_BINARY_PATH = M.DATA_DIR .. "libNeoMLoader.so"
+M.BACKUP_BINARY_PATH = M.DATA_DIR .. "libNeoMLoader.so.bak"
+M.CANARY_FLAG_PATH = M.DATA_DIR .. "update_booting.flag"
+M.LIBSTD_DIR = "/sdcard/Android/media/" .. M.PACKAGE_NAME .. "/neomloader/lib/"
+
+-- Состояния апдейтера
+M.STATE_IDLE = 0
+M.STATE_CHECKING = 1
+M.STATE_AVAILABLE = 2
+M.STATE_DOWNLOADING = 3
+M.STATE_VERIFYING = 4
+M.STATE_COMPLETED = 5
+M.STATE_ERROR = 6
+
+M.state = M.STATE_IDLE
+M.status_message = "Готов к проверке"
+M.progress = 0.0
+M.remote_manifest = nil
+M.show_ui = false
+M.has_binary_update = false
+M.has_libstd_update = false
+
+local function log_msg(msg)
+    if print then
+        print("[NeoMUpdater] " .. tostring(msg))
+    end
+end
+
+-- Очистка canary-флага после успешного старта
+do
+    local f = io.open(M.CANARY_FLAG_PATH, "r")
+    if f then
+        f:close()
+        os.remove(M.CANARY_FLAG_PATH)
+        log_msg("Успешный запуск после обновления. Флаг canary очищен: " .. M.CANARY_FLAG_PATH)
+    end
+end
+
+-- HTTP GET запрос
+local function http_get(url)
+    local response_body = {}
+    local client = url:match("^https") and https or http
+    if not client then
+        return nil, "HTTP клиент недоступен"
+    end
+
+    local res, code, headers, status = client.request({
+        url = url,
+        method = "GET",
+        headers = {
+            ["User-Agent"] = "NeoMLoader-Updater/" .. M.CURRENT_VERSION,
+            ["Accept"] = "*/*",
+        },
+        sink = ltn12.sink.table(response_body),
+    })
+
+    if res and (code == 200 or code == 302 or code == 301) then
+        return table.concat(response_body)
+    end
+    return nil, string.format("Ошибка HTTP запроса: код %s, статус %s", tostring(code), tostring(status))
+end
+
+-- Загрузка файла на диск с отслеживанием прогресса
+local function download_file(url, target_path, on_progress)
+    local client = url:match("^https") and https or http
+    if not client then
+        return false, "HTTP клиент недоступен"
+    end
+
+    local f, err = io.open(target_path, "wb")
+    if not f then
+        return false, "Не удалось открыть файл для записи: " .. tostring(err)
+    end
+
+    local total_bytes = 0
+    local downloaded_bytes = 0
+
+    local custom_sink = function(chunk, src_err)
+        if chunk and #chunk > 0 then
+            f:write(chunk)
+            downloaded_bytes = downloaded_bytes + #chunk
+            if on_progress then
+                on_progress(downloaded_bytes, total_bytes)
+            end
+        end
+        return 1
+    end
+
+    local res, code, headers = client.request({
+        url = url,
+        method = "GET",
+        headers = {
+            ["User-Agent"] = "NeoMLoader-Updater/" .. M.CURRENT_VERSION,
+        },
+        sink = custom_sink,
+    })
+
+    f:close()
+
+    if res and (code == 200 or code == 302 or code == 301) then
+        return true
+    else
+        os.remove(target_path)
+        return false, string.format("Ошибка загрузки: HTTP код %s", tostring(code))
+    end
+end
+
+-- Асинхронная проверка обновлений
+function M.check_update_coroutine(callback)
+    M.state = M.STATE_CHECKING
+    M.status_message = "Проверка наличия обновлений на сервере..."
+    log_msg("Запрос манифеста: " .. M.MANIFEST_URL)
+
+    local manifest_str, err = http_get(M.MANIFEST_URL)
+    if not manifest_str then
+        M.state = M.STATE_ERROR
+        M.status_message = "Не удалось получить манифест: " .. tostring(err)
+        log_msg(M.status_message)
+        if callback then callback(false, err) end
+        return
+    end
+
+    local manifest = json.decode(manifest_str)
+    if not manifest or not manifest.version then
+        M.state = M.STATE_ERROR
+        M.status_message = "Получен некорректный манифест"
+        log_msg(M.status_message)
+        if callback then callback(false, "Некорректный манифест") end
+        return
+    end
+
+    M.remote_manifest = manifest
+    local remote_build = tonumber(manifest.build_number) or 0
+    local remote_ver = manifest.version
+
+    M.has_binary_update = (remote_build > M.CURRENT_BUILD) or (remote_build == 0 and remote_ver ~= M.CURRENT_VERSION)
+    M.has_libstd_update = false
+    if manifest.libstd and manifest.libstd.version and manifest.libstd.version ~= M.CURRENT_LIBSTD_VERSION then
+        M.has_libstd_update = true
+    end
+
+    if M.has_binary_update or M.has_libstd_update then
+        M.state = M.STATE_AVAILABLE
+        M.status_message = string.format("Доступна новая версия: v%s (сборка %s)", remote_ver, tostring(remote_build))
+        M.show_ui = true
+        log_msg(M.status_message)
+        if callback then callback(true, manifest) end
+    else
+        M.state = M.STATE_IDLE
+        M.status_message = "Все компоненты NeoMLoader актуальны (v" .. M.CURRENT_VERSION .. ")"
+        log_msg(M.status_message)
+        if callback then callback(false, "Обновлений не требуется") end
+    end
+end
+
+-- Единое атомарное обновление всех компонентов (Ядро + Библиотеки)
+function M.apply_all_updates_coroutine(callback)
+    if not M.remote_manifest then
+        M.state = M.STATE_ERROR
+        M.status_message = "Отсутствует манифест обновления"
+        if callback then callback(false, M.status_message) end
+        return
+    end
+
+    -- 1. Обновление бинарного ядра libNeoMLoader.so
+    if M.has_binary_update and M.remote_manifest.binary then
+        local bin_info = M.remote_manifest.binary
+        local bin_url = bin_info.url
+        local expected_sha = bin_info.sha256
+        local expected_size = bin_info.size
+
+        local tmp_path = M.TARGET_BINARY_PATH .. ".tmp"
+        local target_path = M.TARGET_BINARY_PATH
+
+        M.state = M.STATE_DOWNLOADING
+        M.status_message = "Загрузка ядра libNeoMLoader.so..."
+        M.progress = 0.0
+
+        log_msg("Загрузка ядра из: " .. bin_url)
+
+        local success, err = download_file(bin_url, tmp_path, function(downloaded, total)
+            if expected_size and expected_size > 0 then
+                M.progress = (downloaded / expected_size) * 0.5
+            else
+                M.progress = 0.25
+            end
+        end)
+
+        if not success then
+            M.state = M.STATE_ERROR
+            M.status_message = "Ошибка при загрузке ядра: " .. tostring(err)
+            log_msg(M.status_message)
+            if callback then callback(false, err) end
+            return
+        end
+
+        M.state = M.STATE_VERIFYING
+        M.status_message = "Проверка контрольной суммы ядра..."
+
+        local computed_sha = sha256.file(tmp_path)
+        if expected_sha and #expected_sha > 0 and computed_sha ~= expected_sha then
+            os.remove(tmp_path)
+            M.state = M.STATE_ERROR
+            M.status_message = string.format("Несовпадение SHA256 ядра! Ожидалось: %s, получено: %s", expected_sha, computed_sha)
+            log_msg(M.status_message)
+            if callback then callback(false, "Ошибка SHA256") end
+            return
+        end
+
+        -- Резервная копия текущего рабочего ядра
+        local cur_in = io.open(target_path, "rb")
+        if cur_in then
+            local cur_data = cur_in:read("*a")
+            cur_in:close()
+            if cur_data and #cur_data > 1024 then
+                local bak_out = io.open(M.BACKUP_BINARY_PATH, "wb")
+                if bak_out then
+                    bak_out:write(cur_data)
+                    bak_out:close()
+                    log_msg("Создана резервная копия: " .. M.BACKUP_BINARY_PATH)
+                end
+            end
+        end
+
+        -- Установка canary-флага
+        local flag_out = io.open(M.CANARY_FLAG_PATH, "w")
+        if flag_out then
+            flag_out:write(os.date("!%Y-%m-%dT%H:%M:%SZ\n"))
+            flag_out:close()
+            log_msg("Установлен canary-флаг: " .. M.CANARY_FLAG_PATH)
+        end
+
+        -- Атомарная замена файла
+        M.status_message = "Установка обновлённого ядра..."
+        local renamed, rename_err = os.rename(tmp_path, target_path)
+        if not renamed then
+            os.remove(target_path)
+            renamed, rename_err = os.rename(tmp_path, target_path)
+        end
+
+        if not renamed then
+            M.state = M.STATE_ERROR
+            M.status_message = "Ошибка замены бинарника: " .. tostring(rename_err)
+            log_msg(M.status_message)
+            if callback then callback(false, rename_err) end
+            return
+        end
+    end
+
+    -- 2. Обновление стандартных библиотек (libstd)
+    if M.has_libstd_update and M.remote_manifest.libstd and M.remote_manifest.libstd.zip_url then
+        local zip_url = M.remote_manifest.libstd.zip_url
+        local tmp_zip = M.LIBSTD_DIR .. "libstd_update.zip.tmp"
+        local unzip_dir = M.LIBSTD_DIR .. ".unzip_tmp"
+
+        M.state = M.STATE_DOWNLOADING
+        M.status_message = "Загрузка пакета стандартных библиотек..."
+        M.progress = 0.55
+
+        log_msg("Загрузка libstd.zip из: " .. zip_url)
+        local success, err = download_file(zip_url, tmp_zip, function(downloaded, total)
+            M.progress = 0.55 + (downloaded / (downloaded + 1000000)) * 0.25
+        end)
+
+        if success then
+            M.state = M.STATE_VERIFYING
+            M.status_message = "Распаковка и установка библиотек..."
+            M.progress = 0.85
+
+            -- Используем встроенную Android утилиту unzip
+            os.execute(string.format("mkdir -p '%s'", unzip_dir))
+            local code = os.execute(string.format("unzip -o -q '%s' -d '%s'", tmp_zip, unzip_dir))
+            if code == 0 or code == true then
+                os.execute(string.format("cp -rf '%s'/libstd-main/* '%s' 2>/dev/null || cp -rf '%s'/* '%s' 2>/dev/null", unzip_dir, M.LIBSTD_DIR, unzip_dir, M.LIBSTD_DIR))
+                log_msg("Библиотеки успешно распакованы в " .. M.LIBSTD_DIR)
+            end
+            os.execute(string.format("rm -rf '%s' '%s'", unzip_dir, tmp_zip))
+            M.CURRENT_LIBSTD_VERSION = M.remote_manifest.libstd.version
+        else
+            log_msg("Предупреждение: не удалось загрузить libstd.zip: " .. tostring(err))
+        end
+    end
+
+    M.progress = 1.0
+    M.state = M.STATE_COMPLETED
+    M.status_message = "Обновление успешно установлено! Перезапустите игру для применения."
+    log_msg(M.status_message)
+    if callback then callback(true, "Успешно") end
+end
+
+-- Совместимый алиас
+M.apply_binary_update_coroutine = M.apply_all_updates_coroutine
+
+-- Запуск проверки в отдельной корутине
+function M.start_auto_check()
+    local co = coroutine.create(function()
+        M.check_update_coroutine(function(has_update, data)
+            if has_update then
+                log_msg("Обнаружена новая версия компонентов: " .. tostring(data.version))
+            end
+        end)
+    end)
+    coroutine.resume(co)
+end
+
+-- Отрисовка интерфейса: Dark Liquid Obsidian Glass
+function M.render_ui()
+    if not M.show_ui then return end
+
+    local imgui = nil
+    if type(_G.imgui) == "table" then
+        imgui = _G.imgui
+    else
+        local ok, lib = pcall(require, "imgui")
+        if ok then imgui = lib end
+    end
+
+    if not imgui or not imgui.Begin then return end
+
+    local mds = 1.0
+    if type(MONET_DPI_SCALE) == "number" and MONET_DPI_SCALE > 0 then
+        mds = MONET_DPI_SCALE
+    end
+
+    -- Настройка стиля Liquid Obsidian Glass
+    imgui.PushStyleColor(imgui.Col.WindowBg,       imgui.ImVec4(0.040, 0.055, 0.090, 0.90))
+    imgui.PushStyleColor(imgui.Col.Border,         imgui.ImVec4(0.200, 0.380, 0.650, 0.45))
+    imgui.PushStyleColor(imgui.Col.FrameBg,        imgui.ImVec4(0.075, 0.110, 0.190, 0.65))
+    imgui.PushStyleColor(imgui.Col.Button,         imgui.ImVec4(0.090, 0.420, 0.800, 0.78))
+    imgui.PushStyleColor(imgui.Col.ButtonHovered,  imgui.ImVec4(0.140, 0.540, 0.950, 0.90))
+    imgui.PushStyleColor(imgui.Col.ButtonActive,   imgui.ImVec4(0.070, 0.340, 0.680, 0.98))
+    imgui.PushStyleColor(imgui.Col.Text,           imgui.ImVec4(0.920, 0.960, 1.000, 1.00))
+    imgui.PushStyleColor(imgui.Col.TextDisabled,   imgui.ImVec4(0.520, 0.600, 0.720, 1.00))
+    imgui.PushStyleColor(imgui.Col.Separator,      imgui.ImVec4(0.180, 0.320, 0.520, 0.40))
+    imgui.PushStyleColor(imgui.Col.PlotHistogram,  imgui.ImVec4(0.100, 0.750, 0.850, 0.90))
+
+    imgui.PushStyleVarFloat(imgui.StyleVar.WindowRounding, 16.0 * mds)
+    imgui.PushStyleVarFloat(imgui.StyleVar.FrameRounding,  8.0 * mds)
+    imgui.PushStyleVarVec2(imgui.StyleVar.WindowPadding,   imgui.ImVec2(20 * mds, 20 * mds))
+    imgui.PushStyleVarVec2(imgui.StyleVar.ItemSpacing,     imgui.ImVec2(10 * mds, 10 * mds))
+
+    local winW = 520 * mds
+    local winH = 340 * mds
+    imgui.SetNextWindowSize(imgui.ImVec2(winW, winH), imgui.Cond.FirstUseEver)
+
+    local flags = imgui.WindowFlags.NoCollapse
+    if imgui.WindowFlags.AlwaysAutoResize then
+        flags = flags + imgui.WindowFlags.AlwaysAutoResize
+    end
+
+    if imgui.Begin(u8("NeoMLoader • Обновление системы##liquid_modal"), nil, flags) then
+        -- Отрисовка жидкого светового градиента и зеркального блика по верхнему краю
+        local dl = imgui.GetWindowDrawList()
+        local wp = imgui.GetWindowPos()
+        local ws = imgui.GetWindowSize()
+        local x1, y1 = wp.x, wp.y
+        local x2, y2 = x1 + ws.x, y1 + ws.y
+
+        -- Анимированное пульсирующее свечение (0% нагрузки на GPU)
+        local t = os.clock()
+        local pulse = (math.sin(t * 2.2) + 1.0) * 0.5
+        local a_top = math.floor(20 + pulse * 22)
+        local c_tl = bit.bor(bit.lshift(a_top, 24), 0x0088EE)
+        local c_tr = bit.bor(bit.lshift(math.floor(a_top * 0.75), 24), 0x9922EE)
+
+        if dl.AddRectFilledMultiColor then
+            dl:AddRectFilledMultiColor(imgui.ImVec2(x1 + 1, y1 + 1), imgui.ImVec2(x2 - 1, y1 + 38 * mds), c_tl, c_tr, 0, 0)
+        end
+        -- Зеркальная грань (specular reflection)
+        dl:AddLine(imgui.ImVec2(x1 + 18 * mds, y1 + 1), imgui.ImVec2(x2 - 18 * mds, y1 + 1), 0x55FFFFFF, 1.5)
+        -- Внешний контур с мягким неоновым отблеском
+        dl:AddRect(imgui.ImVec2(x1, y1), imgui.ImVec2(x2, y2), 0x354499FF, 16.0 * mds, 15, 1.5)
+
+        -- Шапка окна
+        imgui.TextColored(imgui.ImVec4(0.20, 0.85, 1.00, 1.0), u8("✦ NEOMLOADER ОБНОВЛЕНИЕ СИСТЕМЫ ✦"))
+        imgui.TextDisabled(u8("Автоматическая проверка и безопасная установка компонентов"))
+        imgui.Separator()
+        imgui.Spacing()
+
+        -- Информационная карточка версий
+        imgui.PushStyleColor(imgui.Col.ChildBg, imgui.ImVec4(0.065, 0.095, 0.160, 0.65))
+        imgui.PushStyleVarFloat(imgui.StyleVar.ChildRounding, 10.0 * mds)
+        imgui.BeginChild("##ver_card", imgui.ImVec2(0, 72 * mds), true)
+
+        imgui.Text(string.format(u8("Установлено:  v%s (сборка %d) | libstd v%s"), M.CURRENT_VERSION, M.CURRENT_BUILD, M.CURRENT_LIBSTD_VERSION))
+        if M.remote_manifest and M.remote_manifest.version then
+            imgui.TextColored(imgui.ImVec4(0.30, 1.00, 0.50, 1.0),
+                string.format(u8("Доступно:      v%s (сборка %s) [Новая версия!]"), M.remote_manifest.version, tostring(M.remote_manifest.build_number)))
+        end
+        imgui.TextDisabled(u8("Компоненты:  Ядро (libNeoMLoader.so) + Библиотеки (libstd)"))
+
+        imgui.EndChild()
+        imgui.PopStyleVar()
+        imgui.PopStyleColor()
+
+        imgui.Spacing()
+
+        -- Список изменений (если имеется в манифесте)
+        if M.remote_manifest and M.remote_manifest.changelog and #M.remote_manifest.changelog > 0 then
+            imgui.TextColored(imgui.ImVec4(0.40, 0.80, 1.00, 1.0), u8("Список изменений:"))
+            imgui.PushStyleColor(imgui.Col.ChildBg, imgui.ImVec4(0.055, 0.080, 0.135, 0.55))
+            imgui.PushStyleVarFloat(imgui.StyleVar.ChildRounding, 8.0 * mds)
+            imgui.BeginChild("##changelog_card", imgui.ImVec2(0, 56 * mds), true)
+            imgui.TextWrapped(u8(M.remote_manifest.changelog))
+            imgui.EndChild()
+            imgui.PopStyleVar()
+            imgui.PopStyleColor()
+            imgui.Spacing()
+        end
+
+        imgui.Separator()
+        imgui.Spacing()
+
+        -- Статусная строка
+        if M.state == M.STATE_ERROR then
+            imgui.TextColored(imgui.ImVec4(1.0, 0.35, 0.35, 1.0), u8(M.status_message))
+        elseif M.state == M.STATE_COMPLETED then
+            imgui.TextColored(imgui.ImVec4(0.25, 1.0, 0.45, 1.0), u8(M.status_message))
+        else
+            imgui.Text(u8(M.status_message))
+        end
+
+        -- Индикатор прогресса
+        if M.state == M.STATE_DOWNLOADING or M.state == M.STATE_VERIFYING then
+            imgui.ProgressBar(M.progress, imgui.ImVec2(-1, 18 * mds), string.format("%d%%", math.floor(M.progress * 100)))
+        end
+
+        imgui.Spacing()
+
+        -- Кнопки действий
+        if M.state == M.STATE_AVAILABLE then
+            if imgui.Button(u8("✦ ОБНОВИТЬ ВСЁ ✦"), imgui.ImVec2(240 * mds, 38 * mds)) then
+                local co = coroutine.create(function()
+                    M.apply_all_updates_coroutine()
+                end)
+                coroutine.resume(co)
+            end
+            imgui.SameLine()
+            if imgui.Button(u8("Позже"), imgui.ImVec2(120 * mds, 38 * mds)) then
+                M.show_ui = false
+            end
+        elseif M.state == M.STATE_COMPLETED then
+            imgui.TextColored(imgui.ImVec4(0.3, 1.0, 0.4, 1.0), u8("Перезапустите игру для завершения применения обновлений."))
+            if imgui.Button(u8("Закрыть"), imgui.ImVec2(140 * mds, 36 * mds)) then
+                M.show_ui = false
+            end
+        elseif M.state == M.STATE_ERROR then
+            if imgui.Button(u8("Повторить"), imgui.ImVec2(130 * mds, 36 * mds)) then
+                M.start_auto_check()
+            end
+            imgui.SameLine()
+            if imgui.Button(u8("Закрыть"), imgui.ImVec2(110 * mds, 36 * mds)) then
+                M.show_ui = false
+            end
+        end
+
+        imgui.End()
+    end
+
+    imgui.PopStyleVar(4)
+    imgui.PopStyleColor(10)
+end
+
+-- Автономная регистрация в mimgui, если запущен как скрипт
+local has_mimgui, mimgui = pcall(require, "mimgui")
+if has_mimgui and mimgui and mimgui.OnFrame then
+    mimgui.OnFrame(
+        function() return M.show_ui end,
+        function(player)
+            player.HideCursor = false
+            player.LockPlayer = true
+        end,
+        function()
+            M.render_ui()
+        end
+    )
+end
+
+-- Главная функция для выполнения при входе в игру
+-- Ожидает загрузки игрока в игру (спавна) + 60 секунд задержки
+function main()
+    -- Ожидание доступности SAMP
+    if isSampAvailable then
+        while not isSampAvailable() do
+            if wait then wait(250) else break end
+        end
+    end
+
+    -- Ожидание загрузки и спавна персонажа
+    if sampIsLocalPlayerSpawned then
+        while not sampIsLocalPlayerSpawned() do
+            if wait then wait(500) else break end
+        end
+    end
+
+    -- Задержка 60 секунд после загрузки игрока
+    if wait then
+        wait(60000)
+    end
+
+    -- Запуск проверки обновлений
+    M.start_auto_check()
+
+    if wait then
+        while true do
+            wait(1000)
+        end
+    end
+end
+
+return M

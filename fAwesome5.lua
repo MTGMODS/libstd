@@ -940,7 +940,6 @@ local fa_icon = {
 local MIN_ICON, MAX_ICON = 0xf000, 0xf83e
 
 local function unicode_to_utf8(code)
-   -- converts numeric UTF code (U+code) to UTF-8 string
    local t, h = {}, 128
    while code >= h do
       t[#t+1] = 128 + code%64
@@ -951,10 +950,28 @@ local function unicode_to_utf8(code)
    return string.char(unpack(t)):reverse()
 end
 
+local function get_font_data_base85(font_type)
+    local ok, fa6 = pcall(require, "fAwesome6")
+    if ok and fa6 and fa6.get_font_data_base85 then
+        return fa6.get_font_data_base85(font_type)
+    end
+    local ok_solid, fa6_s = pcall(require, "fAwesome6_solid")
+    if ok_solid and fa6_s and fa6_s.get_font_data_base85 then
+        return fa6_s.get_font_data_base85()
+    end
+    return nil
+end
+
+fa_icon.get_font_data_base85 = get_font_data_base85
+
 setmetatable(fa_icon, {
 	__call = function(t, v)
 		if (type(v) == 'string') then
-			return t['ICON_'..v:upper()] or '?'
+			local clean = v:upper():gsub("-", "_")
+			if clean:sub(1, 8) == "ICON_FA_" then clean = clean:sub(9)
+			elseif clean:sub(1, 5) == "ICON_" then clean = clean:sub(6)
+			elseif clean:sub(1, 3) == "FA_" then clean = clean:sub(4) end
+			return t[clean] or t['ICON_'..clean] or t['ICON_FA_'..clean] or '?'
 		elseif (type(v) == 'number' and v >= MIN_ICON and v <= MAX_ICON) then
 			return unicode_to_utf8(v)
 		end
@@ -967,10 +984,29 @@ setmetatable(fa_icon, {
 				return MIN_ICON
 			elseif i == 'max_range' then
 				return MAX_ICON
+			elseif i == 'glyph_ranges' then
+				return { MIN_ICON, MAX_ICON, 0 }
+			elseif i == 'get_font_data_base85' then
+				return get_font_data_base85
 			end
+			local clean = i:upper():gsub("-", "_")
+			local val = rawget(t, clean)
+			if val then return val end
+			if clean:sub(1, 8) == 'ICON_FA_' then
+				val = rawget(t, clean:sub(9))
+				if val then return val end
+			elseif clean:sub(1, 5) == 'ICON_' then
+				val = rawget(t, clean:sub(6))
+				if val then return val end
+			elseif clean:sub(1, 3) == 'FA_' then
+				val = rawget(t, clean:sub(4))
+				if val then return val end
+			end
+			val = rawget(t, 'ICON_' .. clean) or rawget(t, 'ICON_FA_' .. clean)
+			if val then return val end
 		end
 
-		return t[i]
+		return rawget(t, i)
 	end
 })
 

@@ -1,11 +1,3 @@
--- The ini file config library.
--- 
--- This file is part of SA MoonLoader package.
--- Licensed under the MIT License.
--- Copyright (c) 2019, BlastHack Team <blast.hk>
---
--- Modified by Monetloader for Linux support
-
 local inicfg = {}
 
 local PATH_SEPARATOR = '/'

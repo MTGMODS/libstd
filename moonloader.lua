@@ -1,9 +1,3 @@
--- This file is part of SA MoonLoader package.
--- Licensed under the MIT License.
--- Copyright (c) 2016, BlastHack Team <blast.hk>
-
-
--- Message Prefix Types
 TAG = {
 	TYPE_INFO = 1,
 	TYPE_DEBUG = 2,
@@ -108,6 +102,20 @@ local audiostream_status = {
 	PLAYING =  1,
 	PAUSED  =  2
 }
+
+if not rawget(_G, 'Vector3D') then
+	local status, v3d = pcall(require, 'vector3d')
+	if status and v3d then
+		_G.Vector3D = v3d
+	end
+end
+
+if not rawget(_G, 'matrix3x3') then
+	local status, m3 = pcall(require, 'matrix3x3')
+	if status and m3 then
+		_G.matrix3x3 = m3
+	end
+end
 
 return {
 	message_prefix = TAG,

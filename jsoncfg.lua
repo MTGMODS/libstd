@@ -1,7 +1,3 @@
--- Copyright (c) MonetLoader, 2023
--- Built-in library: jsoncfg
--- Lua package is distributed under the MIT license
-
 local PATH_SEPARATOR = '/'
 if MONET_VERSION == nil then
   PATH_SEPARATOR = '\\'
@@ -21,7 +17,7 @@ local function deepcopy(o, seen)
       no[deepcopy(k, seen)] = deepcopy(v, seen)
     end
     setmetatable(no, deepcopy(getmetatable(o), seen))
-  else -- number, string, boolean, etc
+  else
     no = o
   end
   return no

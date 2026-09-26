@@ -1,11 +1,3 @@
--- This file is part of SA MoonLoader package.
--- Licensed under the MIT License.
--- Copyright (c) 2016, BlastHack Team <blast.hk>
-
--- Matrix3X3 class
--- authors: MTA Team (original MTA's CMatrix), FYP (lua implementation)
-
-
 local Vector3D = require "vector3d"
 
 Matrix3X3 = function(rightX, rightY, rightZ, frontX, frontY, frontZ, upX, upY, upZ)
@@ -37,15 +29,15 @@ Matrix3X3 = function(rightX, rightY, rightZ, frontX, frontY, frontZ, upX, upY, u
 	function obj:rotate(v, theta)
 		local tsin, tcos = math.sin(theta), math.cos(theta)
 		local rightX, rightY, rightZ, frontX, frontY, frontZ, upX, upY, upZ
-		-- rotate Y
+
 		rightX = tcos + (1.0 - tcos) * v.x * v.x
 		rightY = (1.0 - tcos) * v.x * v.y - tsin * v.z
 		rightZ = (1.0 - tcos) * v.x * v.z + tsin * v.y
-		-- rotate Y
+
 		frontX = (1.0 - tcos) * v.y * v.x + tsin * v.z
 		frontY = tcos + (1.0 - tcos) * v.y * v.y
 		frontZ = (1.0 - tcos) * v.y * v.z - tsin * v.x
-		-- rotate Z
+
 		upX = (1.0 - tcos) * v.z * v.x - tsin * v.y
 		upY = (1.0 - tcos) * v.z * v.y + tsin * v.x
 		upZ = tcos + (1.0 - tcos) * v.z * v.z
@@ -54,7 +46,6 @@ Matrix3X3 = function(rightX, rightY, rightZ, frontX, frontY, frontZ, upX, upY, u
 
 	obj.vector_mul = obj.vectorMul
 
-	-- meta
 	function mt:__mul(m)
 		local mat = Matrix3X3()
 		mat.right = self:vectorMul(m.right)

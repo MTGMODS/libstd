@@ -1,5 +1,3 @@
--- Lua Requests library for http ease
-
 local http_socket = require('socket.http')
 local has_https, https_socket = pcall(require, 'ssl.https')
 if not has_https then
@@ -12,7 +10,7 @@ local has_xml, xml = pcall(require, 'xml')
 if not has_xml then
   xml = nil
 end
-local md5sum = require('md5') -- TODO: Make modular?
+local md5sum = require('md5')
 local base64 = require('base64')
 
 local requests = {
@@ -23,14 +21,10 @@ local requests = {
 
 local _requests = {}
 
---User facing function the make a request use Digest Authentication
---TODO: Determine what else should live in authentication
 function requests.HTTPDigestAuth(user, password)
   return { _type = 'digest', user = user, password = password}
 end
 
---User facing function the make a request use Basic Authentication
---TODO: Determine what else should live in authentication
 function requests.HTTPBasicAuth(user, password)
   return { _type = 'basic', user = user, password = password}
 end
@@ -67,7 +61,6 @@ function requests.trace(url, args)
   return requests.request("TRACE", url, args)
 end
 
---Sets up all the data for a request and makes the request
 function requests.request(method, url, args)
   local request
 
@@ -81,7 +74,6 @@ function requests.request(method, url, args)
   request.method = method
   _requests.parse_args(request)
 
-  -- TODO: Find a better way to do this
   if request.auth and request.auth._type == 'digest' then
     local response = _requests.make_request(request)
     return _requests.use_digest(response, request)
@@ -90,7 +82,6 @@ function requests.request(method, url, args)
   end
 end
 
---Makes a request
 function _requests.make_request(request)
   local response_body = {}
   local full_request = {
@@ -109,20 +100,30 @@ function _requests.make_request(request)
   local socket
 
   if not want_https or request.proxy then
-    --Use HTTP
+
     socket = requests.http_socket
   elseif want_https and not https_socket then
-    --Try to fallback to HTTP
+
     full_request.url = string.gsub(full_request.url, '^https:', 'http:', 1)
     socket = requests.http_socket
   else
-    --Use HTTPS
+
     socket = requests.https_socket
   end
 
-  ok, response.status_code, response.headers, response.status = socket.request(full_request)
+  if not socket then
+    error('no HTTP transport available for '..request.url)
+  end
 
-  assert(ok, 'error in '..request.method..' request: '..response.status_code)
+  local transport_error
+  ok, response.status_code, response.headers, response.status = socket.request(full_request)
+  if not ok then
+    transport_error = response.status_code or response.status or 'unknown transport error'
+    error('error in '..request.method..' request: '..tostring(transport_error))
+  end
+
+  response.status_code = response.status_code or 0
+  response.headers = response.headers or {}
   response.text = table.concat(response_body)
   response.json = function () return json.decode(response.text) end
   if xml ~= nil then
@@ -132,7 +133,6 @@ function _requests.make_request(request)
   return response
 end
 
---Parses through all the possible arguments for a request
 function _requests.parse_args(request)
   _requests.check_url(request)
   _requests.check_data(request)
@@ -141,8 +141,7 @@ function _requests.parse_args(request)
   _requests.check_redirect(request.allow_redirects)
 end
 
---Format the the url based on the params argument
-function _requests.format_params(url, params) -- TODO: Clean
+function _requests.format_params(url, params)
   if not params or next(params) == nil then return url end
 
   url = url..'?'
@@ -169,13 +168,11 @@ function _requests.format_params(url, params) -- TODO: Clean
   return url:sub(0, -2)
 end
 
---Check that there is a URL given and append to it if params are passed in.
 function _requests.check_url(request)
   assert(request.url, 'No url specified for request')
   request.url = _requests.format_params(request.url, request.params)
 end
 
--- Add to the HTTP header
 function _requests.create_header(request)
   request.headers = request.headers or {}
   request.headers['Content-Length'] = request.data:len()
@@ -193,7 +190,6 @@ function _requests.create_header(request)
   end
 end
 
---Makes sure that the data is in a format that can be sent
 function _requests.check_data(request)
   request.data = request.data or ''
 
@@ -202,7 +198,6 @@ function _requests.check_data(request)
   end
 end
 
---Set the timeout
 function _requests.check_timeout(timeout)
   requests.http_socket.TIMEOUT = timeout or 5
   if requests.https_socket ~= nil then
@@ -210,20 +205,17 @@ function _requests.check_timeout(timeout)
   end
 end
 
---Checks is allow_redirects parameter is set correctly
 function _requests.check_redirect(allow_redirects)
   if allow_redirects and type(allow_redirects) ~= "boolean" then
     error("allow_redirects expects a boolean value. received type = "..type(allow_redirects))
   end
 end
 
---Create the Authorization header for Basic Auth
 function _requests.basic_auth_header(request)
   local encoded = base64.encode(request.auth.user..':'..request.auth.password)
   request.headers.Authorization = 'Basic '..encoded
 end
 
--- Create digest authorization string for request header TODO: Could be better, but it should work
 function _requests.digest_create_header_string(auth)
   local authorization = ''
   authorization = 'Digest username="'..auth.user..'", realm="'..auth.realm..'", nonce="'..auth.nonce
@@ -237,12 +229,10 @@ function _requests.digest_create_header_string(auth)
   return authorization
 end
 
---MD5 hash all parameters
 local function md5_hash(...)
   return md5sum.sumhexa(table.concat({...}, ":"))
 end
 
--- Creates response hash TODO: Add functionality
 function _requests.digest_hash_response(auth_table)
   return md5_hash(
     md5_hash(auth_table.user, auth_table.realm, auth_table.password),
@@ -254,7 +244,6 @@ function _requests.digest_hash_response(auth_table)
   )
 end
 
--- Add digest authentication to the request header
 function _requests.digest_auth_header(request)
   if not request.auth.nonce then return end
 
@@ -275,8 +264,6 @@ function _requests.digest_auth_header(request)
   request.headers.Authorization = _requests.digest_create_header_string(request.auth)
 end
 
---Checks the resonse code and adds additional headers for Digest Auth
--- TODO: Rename this
 function _requests.use_digest(response, request)
   if response.status_code == 401 then
     _requests.parse_digest_response_header(response,request)
@@ -292,7 +279,6 @@ function _requests.use_digest(response, request)
   end
 end
 
---Parse the first response from the host to make the Authorization header
 function _requests.parse_digest_response_header(response, request)
   for key, value in response.headers['www-authenticate']:gmatch('(%w+)="(%S+)"') do
     request.auth[key] = value
@@ -307,7 +293,6 @@ function _requests.parse_digest_response_header(response, request)
   request.auth.nc_count = 0
 end
 
--- Call the correct authentication header function
 function _requests.add_auth_headers(request)
   local auth_func = {
     basic = _requests.basic_auth_header,
@@ -317,6 +302,5 @@ function _requests.add_auth_headers(request)
   auth_func[request.auth._type](request)
 end
 
---Return public functions
 requests._private = _requests
 return requests

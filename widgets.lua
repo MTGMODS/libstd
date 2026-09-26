@@ -1,11 +1,7 @@
--- Copyright (c) MonetLoader, 2023
--- Built-in library: Widget IDs
--- Lua package is distributed under the MIT license
-
 local widgets = {
-  WIDGET_ENTER_CAR = 0x1, --
-  WIDGET_ATTACK = 0x4, --
-  WIDGET_ACCELERATE = 0x0, --
+  WIDGET_ENTER_CAR = 0x1,
+  WIDGET_ATTACK = 0x4,
+  WIDGET_ACCELERATE = 0x0,
   WIDGET_BRAKE = 0x3,
   WIDGET_HANDBRAKE = 0x4,
   WIDGET_VEHICLE_STEER_LEFT = 0x5,
@@ -14,7 +10,7 @@ local widgets = {
   WIDGET_PHONE = 0x8,
   WIDGET_GIFT = 0x9,
   WIDGET_KISS = 0xA,
-  WIDGET_CAR_SHOOT = 0x5, -- 0xB,
+  WIDGET_CAR_SHOOT = 0x5,
   WIDGET_HYDRAULICS = 0xC,
   WIDGET_AUTO_HYDRAULICS = 0xD,
   WIDGET_DROP_CRANE = 0xE,
@@ -34,7 +30,7 @@ local widgets = {
   WIDGET_PURCHASE = 0x1C,
   WIDGET_SWAP_WEAPONS = 0x1D,
   WIDGET_NITRO = 0x1E,
-  WIDGET_BUTTON_SPRINT = 0x0, --0x1F,
+  WIDGET_BUTTON_SPRINT = 0x0,
   WIDGET_BUTTON_CROUCH = 0x20,
   WIDGET_BUTTON_DIVE = 0x21,
   WIDGET_BUTTON_SWIM = 0x22,
@@ -170,8 +166,8 @@ local widgets = {
   WIDGET_THUMB_CIRCLE = 0xA4,
   WIDGET_MENU = 0xA5,
   WIDGET_SWIPE_RADIO = 0xA6,
-  WIDGET_PED_MOVE = 0x2, --0xA7,
-  WIDGET_SPRINT = 0x0, --0xA8,
+  WIDGET_PED_MOVE = 0x2,
+  WIDGET_SPRINT = 0x0,
   WIDGET_BASKETBALL_JUMP = 0xA9,
   WIDGET_SHOOT_LOOK = 0xAA,
   WIDGET_VEHICLE_LANECORRECTION = 0xAB,
@@ -196,7 +192,6 @@ local widgets = {
   NUM_WIDGETS = 0xBE
 }
 
--- Copy table 'widgets' to a global scope
 for k, v in pairs(widgets) do
 	_G[k] = v
 end

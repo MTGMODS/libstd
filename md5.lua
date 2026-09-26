@@ -28,8 +28,6 @@ local md5 = {
   ]]
 }
 
--- bit lib implementions
-
 local char, byte, format, rep, sub =
   string.char, string.byte, string.format, string.rep, string.sub
 local bit_or, bit_and, bit_not, bit_xor, bit_rshift, bit_lshift
@@ -73,13 +71,13 @@ else
       if(#big < #small) then
         big, small = small, big
       end
-      -- expand small
+
       for i = #small + 1, #big do
         small[i] = 0
       end
     end
 
-    local to_bits -- needs to be declared before bit_not
+    local to_bits
 
     bit_not = function(n)
       local tbl = to_bits(n)
@@ -94,13 +92,12 @@ else
       return tbl2number(tbl)
     end
 
-    -- defined as local above
     to_bits = function (n)
       if(n < 0) then
-        -- negative
+
         return to_bits(bit_not(math.abs(n)) + 1)
       end
-      -- to bits table
+
       local tbl = {}
       local cnt = 1
       local last
@@ -168,7 +165,7 @@ else
     bit_rshift = function(n, bits)
       local high_bit = 0
       if(n < 0) then
-        -- negative
+
         n = bit_not(math.abs(n)) + 1
         high_bit = 0x80000000
       end
@@ -184,7 +181,7 @@ else
 
     bit_lshift = function(n, bits)
       if(n < 0) then
-        -- negative
+
         n = bit_not(math.abs(n)) + 1
       end
 
@@ -196,9 +193,8 @@ else
   end
 end
 
--- convert little-endian 32-bit int to a 4-char string
 local lei2str
--- function is defined this way to allow full jit compilation (removing UCLO instruction in LuaJIT)
+
 if ok_ffi then
   local ct_IntType = ffi.typeof("int[1]")
   lei2str = function(i) return ffi.string(ct_IntType(i), 4) end
@@ -209,9 +205,6 @@ else
   end
 end
 
-
-
--- convert raw string to big-endian int
 local function str2bei(s)
   local v=0
   for i=1, #s do
@@ -220,7 +213,6 @@ local function str2bei(s)
   return v
 end
 
--- convert raw string to little-endian int
 local str2lei
 
 if ok_ffi then
@@ -240,8 +232,6 @@ else
     end
 end
 
-
--- cut up a string in little-endian ints of given size
 local function cut_le_str(s)
   return {
     str2lei(sub(s, 1, 4)),
@@ -262,9 +252,6 @@ local function cut_le_str(s)
     str2lei(sub(s, 61, 64)),
   }
 end
-
--- An MD5 mplementation in Lua, requires bitlib (hacked to use LuaBit from above, ugh)
--- 10/02/2001 jcw@equi4.com
 
 local CONSTS = {
   0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee,
@@ -292,7 +279,7 @@ local h=function (x,y,z) return bit_xor(x,bit_xor(y,z)) end
 local i=function (x,y,z) return bit_xor(y,bit_or(x,-z-1)) end
 local z=function (ff,a,b,c,d,x,s,ac)
   a=bit_and(a+ff(b,c,d)+x+ac,0xFFFFFFFF)
-  -- be *very* careful that left shift does not cause rounding!
+
   return bit_or(bit_lshift(bit_and(a,bit_rshift(0xFFFFFFFF,s)),s),bit_rshift(a,32-s))+b
 end
 
@@ -372,15 +359,13 @@ local function transform(A,B,C,D,X)
          bit_and(C+c,0xFFFFFFFF),bit_and(D+d,0xFFFFFFFF)
 end
 
-----------------------------------------------------------------
-
 local function md5_update(self, s)
   self.pos = self.pos + #s
   s = self.buf .. s
   for ii = 1, #s - 63, 64 do
     local X = cut_le_str(sub(s,ii,ii+63))
     assert(#X == 16)
-    X[0] = table.remove(X,1) -- zero based!
+    X[0] = table.remove(X,1)
     self.a,self.b,self.c,self.d = transform(self.a,self.b,self.c,self.d,X)
   end
   self.buf = sub(s, math.floor(#s/64)*64 + 1, #s)
@@ -401,8 +386,6 @@ local function md5_finish(self)
   assert(self.pos % 64 == 0)
   return lei2str(self.a) .. lei2str(self.b) .. lei2str(self.c) .. lei2str(self.d)
 end
-
-----------------------------------------------------------------
 
 function md5.new()
   return { a = CONSTS[65], b = CONSTS[66], c = CONSTS[67], d = CONSTS[68],
