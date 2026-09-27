@@ -493,6 +493,39 @@ mimgui.ImGuiListClipper = setmetatable({}, {
     __call = function(_, ...) return ImGuiListClipper_ctor(...) end
 })
 
+local ImGuiTextFilter_mt = {
+    __index = {
+        Build = function(self)
+            ffi.C.ImGuiTextFilter_Build(self)
+        end,
+        Clear = function(self)
+            ffi.C.ImGuiTextFilter_Clear(self)
+        end,
+        Draw = function(self, label, width)
+            return ffi.C.ImGuiTextFilter_Draw(self, label or "Filter", width or 0.0)
+        end,
+        PassFilter = function(self, text, text_end)
+            return ffi.C.ImGuiTextFilter_PassFilter(self, text, text_end)
+        end,
+        IsActive = function(self)
+            return ffi.C.ImGuiTextFilter_IsActive(self)
+        end,
+    }
+}
+ffi.metatype("ImGuiTextFilter", ImGuiTextFilter_mt)
+
+local function ImGuiTextFilter_ctor(default_filter)
+    local ptr = ffi.C.ImGuiTextFilter_ImGuiTextFilter(default_filter and tostring(default_filter) or "")
+    if ptr ~= nil then
+        return ffi.gc(ptr, ffi.C.ImGuiTextFilter_destroy)
+    end
+    return nil
+end
+
+mimgui.ImGuiTextFilter = setmetatable({}, {
+    __call = function(_, ...) return ImGuiTextFilter_ctor(...) end
+})
+
 local ImFontConfig_mt = {
     __index = function(self, k)
         if k == "FontBuilderFlags" then
@@ -1339,7 +1372,12 @@ function mimgui.Begin(name, p_open, flags)
         p_open = nil
     end
 
-    return ffi.C.igBegin(tostring(name), p_open, flags or 0)
+    local sname = tostring(name or "")
+    if sname == "" then
+        sname = "###unnamed_window"
+    end
+
+    return ffi.C.igBegin(sname, p_open, flags or 0)
 end
 
 function mimgui.End()
@@ -1372,7 +1410,11 @@ function mimgui.BeginChild(id, size, child_flags, window_flags)
     if type(id) == "number" then
         ffi.C.igBeginChild_ID(id, size, child_flags, window_flags)
     else
-        ffi.C.igBeginChild_Str(type(id) == "string" and id or tostring(id), size, child_flags, window_flags)
+        local sid = type(id) == "string" and id or tostring(id or "")
+        if sid == "" then
+            sid = "###unnamed_child"
+        end
+        ffi.C.igBeginChild_Str(sid, size, child_flags, window_flags)
     end
     return true
 end

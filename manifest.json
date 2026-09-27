@@ -1,7 +1,7 @@
 {
   "version": "1.0.2",
-  "updated_at": "2026-09-26T20:30:51.671980+00:00",
-  "total_files": 113,
+  "updated_at": "2026-09-27T01:53:17.590385+00:00",
+  "total_files": 116,
   "files": {
     "LIP.lua": {
       "sha256": "60c5c4b948622f640b572b126e9f2912002a8aa431ebeeb14d458bd61ea23f35",
@@ -96,7 +96,7 @@
       "size": 3008
     },
     "neom_updater.lua": {
-      "sha256": "ec77b1926a1ab7db3fbdbd8b07951041ca86e74f152befa37081f0f889b2a31d",
+      "sha256": "7ebda88b8741c672fc45cb8230b0a1240df06002b7371f4ff07e2f938e66a109",
       "size": 17933
     },
     "requests.lua": {
@@ -152,8 +152,8 @@
       "size": 33424
     },
     "mimgui/init.lua": {
-      "sha256": "797b9bc4bf92551d7f803f2b56921b9af7fc367734f0f929afce8233c972cef7",
-      "size": 102750
+      "sha256": "043fe6b3f4a935c943fdb5dc987f2c6e5b27d4b82d0f9f53f89b619f82ff243e",
+      "size": 104005
     },
     "mimgui/trebucbd.ttf": {
       "sha256": "dfcc306777a594d2815368547dd897e2ac82aff8073e55d9e682569939e49b81",
@@ -316,16 +316,16 @@
       "size": 1762
     },
     "SAMemory/init.lua": {
-      "sha256": "ee401669bc8a0227af4c61bf6310881c9023b90c1db854ad4b826b04e68fef7d",
-      "size": 1583
+      "sha256": "64d3cee0600662fd46e395259a318b18435591e67536d45256d05e7a49b207e5",
+      "size": 2520
     },
     "SAMemory/metatype.lua": {
       "sha256": "865469f2ec5eb413c13bf68eb4cfbe8739345067fd36462412b2c7d7b8e2463e",
       "size": 353
     },
     "SAMemory/shared.lua": {
-      "sha256": "d240e6868e8d72c669d6706bab5ac0365464df5b188ce632b46f608e16416055",
-      "size": 311
+      "sha256": "65cead55de73edc33ac9ca2679b2381f19fde208538e450e70bc8bb540b616b0",
+      "size": 474
     },
     "SAMemory/game/CCam.lua": {
       "sha256": "7b13882710e0485cd31b6744923245ff6f6fdaac359d6cff8b721695d92ed3e5",
@@ -359,9 +359,17 @@
       "sha256": "c6d70998f116f95f2ad0b7537e8b73c2ad8a9ec4aba6d4d3ebdee85af74c64db",
       "size": 127
     },
+    "SAMemory/game/CPool.lua": {
+      "sha256": "d7d6395e0be399e97ffc2ac379728a583b53c0c3353c63d65b1fc35f20e962c7",
+      "size": 281
+    },
     "SAMemory/game/CVehicle.lua": {
       "sha256": "110042f4af90e457987587e7520d694c02474c6a964e78b04931983446870115",
       "size": 1882
+    },
+    "SAMemory/game/RenderWare.lua": {
+      "sha256": "efe16fcb04b855793d2b8b0a423d294a70926590b23aa2abe59b2c938b955d3f",
+      "size": 354
     },
     "SAMemory/game/ePedState.lua": {
       "sha256": "4c6e300df462878270ac88bb88a3e54b5804d9995697ea6058efe6c631b0a48e",
@@ -454,6 +462,10 @@
     "jit/zone.lua": {
       "sha256": "24b898d264259a0ce414b89015fee15ad272308e587e7820f8ca65c2e61f2f55",
       "size": 310
+    },
+    "game/weapons.lua": {
+      "sha256": "63e8c05caffbb5336b5ac23cd3963a105b1791736060d54856295024ef601d63",
+      "size": 2577
     }
   }
 }

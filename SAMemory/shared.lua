@@ -8,7 +8,15 @@ local module = {
 }
 
 function module.require(name)
-    return require('SAMemory.game.' .. name)
+    local ok, res = pcall(require, 'SAMemory.game.' .. name)
+    if ok then
+        return res
+    end
+    return setmetatable({}, {
+        __index = function(t, k)
+            return nil
+        end
+    })
 end
 
 function module.validate_size(_, _)

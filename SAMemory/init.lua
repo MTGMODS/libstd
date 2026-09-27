@@ -43,7 +43,27 @@ if camMgr and camMgr ~= 0 then
     }
     setmetatable(cameraTable, {
         __index = function(_, key)
-            if key == 'pRwCamera' then return nil end
+            if key == 'pRwCamera' then
+                if MONET_GTASA_BASE and MONET_GTASA_BASE ~= 0 then
+                    local ok, rwCamPtr = pcall(function()
+                        return ffi.cast('uintptr_t*', MONET_GTASA_BASE + 0x27C8140)[0]
+                    end)
+                    if ok and rwCamPtr and rwCamPtr ~= 0 then
+                        pcall(ffi.cdef, [[
+                            typedef struct RwV2d { float x, y; } RwV2d;
+                            typedef struct RwCamera {
+                                uint8_t pad[56];
+                                RwV2d viewWindow;
+                                float nearplane;
+                                float farplane;
+                            } RwCamera;
+                        ]])
+                        local ok_c, res = pcall(ffi.cast, 'RwCamera*', rwCamPtr)
+                        if ok_c then return res end
+                    end
+                end
+                return nil
+            end
             local ok, val = pcall(function() return cameraPtr[key] end)
             return ok and val or nil
         end
